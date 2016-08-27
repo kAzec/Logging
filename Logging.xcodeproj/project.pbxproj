@@ -176,19 +176,14 @@
 			isa = PBXGroup;
 			children = (
 				4CE6D9651D68CB73003FC5E1 /* CASL */,
-				4C0988711D661D560039AAA1 /* ASLDestination.swift */,
-				4C09886F1D6619B60039AAA1 /* ConsoleDestination.swift */,
-				4C40B2EC1D657D740082DFD7 /* ConsoleTheme.swift */,
-				4CB692641D69972E008B999B /* DestinationTheme.swift */,
-				4C29F3741D67926E00339756 /* Extensions.swift */,
-				4CB6925E1D698AE4008B999B /* FileDestination.swift */,
-				4CB692661D69974E008B999B /* FileTheme.swift */,
+				4C77FCA71D722CF9005997BC /* Destinations */,
+				4C77FCA81D722D0D005997BC /* Themes */,
+				4C0988691D65891C0039AAA1 /* PriorityLevel.swift */,
 				4C29F3721D6777E300339756 /* LogComponent.swift */,
 				4C40B2E61D6579050082DFD7 /* LogFormatter.swift */,
 				4C40B2EA1D657AF80082DFD7 /* Logger.swift */,
 				4C09886D1D65B5E90039AAA1 /* Logging.swift */,
-				4CB6927B1D69BC66008B999B /* ManagedFileDestination.swift */,
-				4C0988691D65891C0039AAA1 /* PriorityLevel.swift */,
+				4C29F3741D67926E00339756 /* Extensions.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -200,6 +195,27 @@
 				4C40B2DD1D6578A50082DFD7 /* Logging.h */,
 			);
 			path = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		4C77FCA71D722CF9005997BC /* Destinations */ = {
+			isa = PBXGroup;
+			children = (
+				4C0988711D661D560039AAA1 /* ASLDestination.swift */,
+				4C09886F1D6619B60039AAA1 /* ConsoleDestination.swift */,
+				4CB6925E1D698AE4008B999B /* FileDestination.swift */,
+				4CB6927B1D69BC66008B999B /* ManagedFileDestination.swift */,
+			);
+			path = Destinations;
+			sourceTree = "<group>";
+		};
+		4C77FCA81D722D0D005997BC /* Themes */ = {
+			isa = PBXGroup;
+			children = (
+				4C40B2EC1D657D740082DFD7 /* ConsoleTheme.swift */,
+				4CB692641D69972E008B999B /* DestinationTheme.swift */,
+				4CB692661D69974E008B999B /* FileTheme.swift */,
+			);
+			path = Themes;
 			sourceTree = "<group>";
 		};
 		4CE6D9651D68CB73003FC5E1 /* CASL */ = {
@@ -826,6 +842,7 @@
 				4C00F9681D7217B900483ED2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		4C00F9741D7217C800483ED2 /* Build configuration list for PBXNativeTarget "Logging watchOS" */ = {
 			isa = XCConfigurationList;
@@ -834,6 +851,7 @@
 				4C00F9761D7217C800483ED2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		4C00F9811D7217D700483ED2 /* Build configuration list for PBXNativeTarget "Logging tvOS" */ = {
 			isa = XCConfigurationList;
@@ -842,6 +860,7 @@
 				4C00F9831D7217D700483ED2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		4C40B2D41D6578A50082DFD7 /* Build configuration list for PBXProject "Logging" */ = {
 			isa = XCConfigurationList;

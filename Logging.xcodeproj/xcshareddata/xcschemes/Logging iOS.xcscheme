@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4C00F9611D7217B900483ED2"
-               BuildableName = "Logging iOS.framework"
+               BuildableName = "Logging.framework"
                BlueprintName = "Logging iOS"
                ReferencedContainer = "container:Logging.xcodeproj">
             </BuildableReference>
@@ -46,7 +46,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4C00F9611D7217B900483ED2"
-            BuildableName = "Logging iOS.framework"
+            BuildableName = "Logging.framework"
             BlueprintName = "Logging iOS"
             ReferencedContainer = "container:Logging.xcodeproj">
          </BuildableReference>
@@ -64,7 +64,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4C00F9611D7217B900483ED2"
-            BuildableName = "Logging iOS.framework"
+            BuildableName = "Logging.framework"
             BlueprintName = "Logging iOS"
             ReferencedContainer = "container:Logging.xcodeproj">
          </BuildableReference>

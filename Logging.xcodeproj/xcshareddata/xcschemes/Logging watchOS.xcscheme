@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4C00F96E1D7217C800483ED2"
-               BuildableName = "Logging watchOS.framework"
+               BuildableName = "Logging.framework"
                BlueprintName = "Logging watchOS"
                ReferencedContainer = "container:Logging.xcodeproj">
             </BuildableReference>
@@ -46,7 +46,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4C00F96E1D7217C800483ED2"
-            BuildableName = "Logging watchOS.framework"
+            BuildableName = "Logging.framework"
             BlueprintName = "Logging watchOS"
             ReferencedContainer = "container:Logging.xcodeproj">
          </BuildableReference>
@@ -64,7 +64,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4C00F96E1D7217C800483ED2"
-            BuildableName = "Logging watchOS.framework"
+            BuildableName = "Logging.framework"
             BlueprintName = "Logging watchOS"
             ReferencedContainer = "container:Logging.xcodeproj">
          </BuildableReference>
