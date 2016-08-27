@@ -398,9 +398,9 @@ private func staticLogFileNamePrefix() -> String {
 }
 
 private func defaultLogDirectoryPath() -> String {
-    #if os(iOS) || os(tvOS)
+    #if os(OSX)
         return App.ensuredLogsDirectoryPath
-    #elseif os(OSX)
+    #else // iOS, tvOS, watchOS
         return (App.ensuredLogsDirectoryPath as NSString).stringByAppendingPathComponent(App.identifier ?? App.name)
     #endif
 }

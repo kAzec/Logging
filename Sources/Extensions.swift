@@ -27,8 +27,13 @@ extension String {
 }
 
 #if os(iOS) || os(tvOS)
+import UIKit
 typealias App = UIApplication
+#elseif os(watchOS)
+import WatchKit
+typealias App = WKExtension
 #else
+import AppKit
 typealias App = NSApplication
 #endif
 
@@ -42,15 +47,15 @@ extension App {
     }
     
     /// Path to "Logs" directory, "~/Library/Logs" for macOS and "\<Bundle\>/Library/Caches/Logs"
-    /// for iOS
+    /// for iOS, tvOS, watchOS
     class var logsDirectoryPath: String {
-        #if os(iOS) || os(tvOS)
+        #if os(OSX)
+            let pathes = NSSearchPathForDirectoriesInDomains(.LibraryDirectory, .UserDomainMask, true)
+            return (pathes.first ?? NSTemporaryDirectory() as NSString).stringByAppendingPathComponent("Logs")
+        #else // iOS, tvOS, watchOS
             let pathes = NSSearchPathForDirectoriesInDomains(.CachesDirectory, .UserDomainMask, true)
             let cacheDirectory = pathes[0]
             return (cacheDirectory as NSString).stringByAppendingPathComponent("Logs")
-        #elseif os(OSX)
-            let pathes = NSSearchPathForDirectoriesInDomains(.LibraryDirectory, .UserDomainMask, true)
-            return (pathes.first ?? NSTemporaryDirectory() as NSString).stringByAppendingPathComponent("Logs")
         #endif
     }
     
