@@ -1,0 +1,4 @@
+module CASL [system] [extern_c] {
+    header "asl_wrapper.h"
+    export *
+}
