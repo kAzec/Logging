@@ -10,7 +10,7 @@ import Foundation
 import CASL
 
 public final class ASLDestination: LoggerDestination {
-    private let queue: dispatch_queue_t
+    private let queue: DispatchQueue
     
     public var formatter: LogFormatter
     public let underlayingClient: asl_object_t
@@ -19,7 +19,7 @@ public final class ASLDestination: LoggerDestination {
                 facility: String = App.identifier ?? "com.uncosmos.Logging",
                 options: Options = .none,
                 formatter: LogFormatter = defaultASLDestinationFormatter(),
-                queue: dispatch_queue_t = dispatch_queue_create("uncosmos.kAzec.Logging.asl-destination", DISPATCH_QUEUE_SERIAL)) {
+                queue: DispatchQueue = DispatchQueue(label: "uncosmos.kAzec.Logging.asl-destination", attributes: [])) {
         
         self.queue = queue
         self.formatter = formatter
@@ -32,8 +32,8 @@ public final class ASLDestination: LoggerDestination {
         }
     }
     
-    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: NSDate) {
-        dispatch_async(queue) {
+    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
+        queue.async {
             let entry = self.formatter.formatComponents(level: level, items: items, separator: separator, file: file, line: line, function: function, date: date)
             let log = self.formatter.formatEntry(entry)
             let message = makeASLMessage(forLevel: level, content: log)
@@ -53,7 +53,7 @@ public final class ASLDestination: LoggerDestination {
         let optionsString = asl_get(underlayingClient, ASL_KEY_OPTION)
         
         if optionsString != nil {
-            let options = Options(rawValue: UInt32(String(optionsString))!)
+            let options = Options(rawValue: UInt32(String(describing: optionsString))!)
             if options.contains(.stdErr) {
                 fflush(stderr)
             }
@@ -65,7 +65,7 @@ public final class ASLDestination: LoggerDestination {
         asl_close(underlayingClient)
     }
     
-    public struct Options: OptionSetType {
+    public struct Options: OptionSet {
         public let rawValue: UInt32
         
         public init(rawValue: UInt32) {
@@ -87,7 +87,7 @@ public final class ASLDestination: LoggerDestination {
 
 }
 
-private func priorityLevelFilterMaskUpTo(level: Int32) -> Int32 {
+private func priorityLevelFilterMaskUpTo(_ level: Int32) -> Int32 {
     return (1 << (level + 1)) - 1
 }
 
@@ -113,7 +113,7 @@ private func makeASLMessage(forLevel level: PriorityLevel, content: String) -> a
     // ASL_KEY_READ_UID attribute determines the processes that can
     // read this log entry. -1 means anyone can read.
     asl_set(message, ASL_KEY_READ_UID, "-1")
-    return message
+    return message!
 }
 
 private func defaultASLDestinationFormatter() -> LogFormatter {

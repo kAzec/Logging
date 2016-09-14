@@ -41,14 +41,14 @@ public struct ConsoleTheme: DestinationTheme, CustomStringConvertible {
         self = ConsoleTheme.initialize(foreground: foreground, background: background, components: components)
     }
     
-    static func colorize(string: String, foreground: Color?, background: Color?) -> String {
+    static func colorize(_ string: String, foreground: Color?, background: Color?) -> String {
         let color = (colorStringFromHex(foreground), colorStringFromHex(background))
         switch color {
-        case (.Some(let foreground), .Some(let background)):
+        case (.some(let foreground), .some(let background)):
             return "\u{001b}[fg\(foreground);\u{001b}[bg\(background);\(string)\u{001b}[;"
-        case (.Some(let foreground), .None):
+        case (.some(let foreground), .none):
             return "\u{001b}[fg\(foreground);\(string)\u{001b}[fg;"
-        case (.None, .Some(let background)):
+        case (.none, .some(let background)):
             return "\u{001b}[bg\(background);\(string)\u{001b}[bg;"
         default:
             return string
@@ -67,12 +67,12 @@ public extension ConsoleTheme {
      
      - returns: A new theme.
      */
-    static func theme(foreground: [(PriorityLevel, Color?)]? = nil, background: [(PriorityLevel, Color?)]? = nil, components: LogComponents) -> ConsoleTheme {
+    static func theme(_ foreground: [(PriorityLevel, Color?)]? = nil, background: [(PriorityLevel, Color?)]? = nil, components: LogComponents) -> ConsoleTheme {
         return ConsoleTheme.initialize(foreground: foreground, background: background, components: components)
     }
     
     /// Default classic theme.
-    static func classic(components: LogComponents = .level) -> ConsoleTheme {
+    static func classic(_ components: LogComponents = .level) -> ConsoleTheme {
         return ConsoleTheme(
             foreground: [
                 (.trace, 0x808080),
@@ -90,7 +90,7 @@ public extension ConsoleTheme {
     }
     
     /// Default solarized theme.
-    static func solarized(components: LogComponents = .level) -> ConsoleTheme {
+    static func solarized(_ components: LogComponents = .level) -> ConsoleTheme {
         return ConsoleTheme(
             foreground: [
                 (.trace, 0x93A1A2),
@@ -108,7 +108,7 @@ public extension ConsoleTheme {
     }
     
     /// Default flat theme.
-    static func flat(components: LogComponents = .level) -> ConsoleTheme {
+    static func flat(_ components: LogComponents = .level) -> ConsoleTheme {
         return ConsoleTheme(
             foreground: [
                 (.trace, 0xE0E0E0),
@@ -127,7 +127,7 @@ public extension ConsoleTheme {
 }
 
 // MARK: - Privates
-private func colorStringFromHex(hex: ConsoleTheme.Color?) -> String? {
+private func colorStringFromHex(_ hex: ConsoleTheme.Color?) -> String? {
     guard let hex = hex else { return nil }
     
     let r = (hex & 0xFF0000) >> 16

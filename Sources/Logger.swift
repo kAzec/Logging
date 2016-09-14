@@ -46,16 +46,16 @@ public final class Logger: Logging {
         }
     }
     
-    typealias LogReceiver = (items: [String], separator: String, file: String, line: Int, function: String) -> Void
+    typealias LogReceiver = (_ items: [String], _ separator: String, _ file: String, _ line: Int, _ function: String) -> Void
     
-    func log(level: PriorityLevel) -> LogReceiver? {
+    func log(_ level: PriorityLevel) -> LogReceiver? {
         guard enabled && level >= self.minimumLevel else {
             return nil
         }
         
         return { items, separator, file, line, function in
             for destination in self.destinations {
-                destination.receiveLog(ofLevel: level, items: items, separator: separator, file: file, line: line, function: function, date: NSDate())
+                destination.receiveLog(ofLevel: level, items: items, separator: separator, file: file, line: line, function: function, date: Date())
             }
         }
     }
@@ -65,24 +65,24 @@ public final class Logger: Logging {
  *  Logger Destination Protocol.
  */
 public protocol LoggerDestination: class {
-    func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: NSDate)
+    func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date)
     func flush()
 }
 
 /// Logger Any Destination
 public final class AnyDestination: LoggerDestination {
-    public typealias Receiver = (level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: NSDate) -> Void
+    public typealias Receiver = (_ level: PriorityLevel, _ items: [String], _ separator: String, _ file: String, _ line: Int, _ function: String, _ date: Date) -> Void
     
     private let receiver: Receiver
-    private let flusher: (Void -> Void)?
+    private let flusher: ((Void) -> Void)?
     
-    public init(receiver: Receiver, flusher: (Void -> Void)? = nil) {
+    public init(receiver: @escaping Receiver, flusher: ((Void) -> Void)? = nil) {
         self.receiver = receiver
         self.flusher = flusher
     }
     
-    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: NSDate) {
-        receiver(level: level, items: items, separator: separator, file: file, line: line, function: function, date: date)
+    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
+        receiver(level, items, separator, file, line, function, date)
     }
     
     public func flush() {

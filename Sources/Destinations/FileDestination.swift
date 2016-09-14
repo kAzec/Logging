@@ -9,8 +9,8 @@
 import Foundation
 
 public final class FileDestination: LoggerDestination {
-    private let fileStream: UnsafeMutablePointer<FILE>
-    private let queue: dispatch_queue_t
+    private let fileStream: UnsafeMutablePointer<FILE>?
+    private let queue: DispatchQueue
     
     public let filePath: String
     public var formatter: LogFormatter
@@ -19,15 +19,15 @@ public final class FileDestination: LoggerDestination {
     public init?(atPath filePath: String = defaultLogFilePath(),
                  formatter: LogFormatter = defaultFileDestinationFormatter(),
                  theme: FileTheme? = nil,
-                 queue: dispatch_queue_t = dispatch_queue_create("uncosmos.kAzec.Logging.file-destination", DISPATCH_QUEUE_SERIAL)) {
+                 queue: DispatchQueue = DispatchQueue(label: "uncosmos.kAzec.Logging.file-destination", attributes: [])) {
         
         // Make sure that filePath is accessible.
-        let fileManager = NSFileManager.defaultManager()
-        if !fileManager.fileExistsAtPath(filePath) {
-            let baseDirectory = (filePath as NSString).stringByDeletingLastPathComponent
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: filePath) {
+            let baseDirectory = (filePath as NSString).deletingLastPathComponent
             var isDirectory: ObjCBool = false
-            if !(fileManager.fileExistsAtPath(baseDirectory, isDirectory: &isDirectory) && isDirectory) {
-                guard let _ = try? fileManager.createDirectoryAtPath(baseDirectory, withIntermediateDirectories: true, attributes: nil) else {
+            if !(fileManager.fileExists(atPath: baseDirectory, isDirectory: &isDirectory) && isDirectory.boolValue) {
+                guard let _ = try? fileManager.createDirectory(atPath: baseDirectory, withIntermediateDirectories: true, attributes: nil) else {
                     return nil
                 }
             }
@@ -46,7 +46,7 @@ public final class FileDestination: LoggerDestination {
         self.theme = theme
     }
     
-    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: NSDate) {
+    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
         guard self.fileStream != nil else {
             return
         }
@@ -58,7 +58,7 @@ public final class FileDestination: LoggerDestination {
         let log = formatter.formatEntry(entry) + "\n"
         
         let fileStream = self.fileStream
-        dispatch_async(queue) {
+        queue.async {
             fputs(log.UTF8String, fileStream)
         }
     }
@@ -82,9 +82,9 @@ public final class FileDestination: LoggerDestination {
 
 private func defaultLogFilePath() -> String {
     let fileName = App.identifier ?? App.name + ".log"
-    let filePath = (App.ensuredLogsDirectoryPath as NSString).stringByAppendingPathComponent(fileName)
+    let filePath = (App.ensuredLogsDirectoryPath as NSString).appendingPathComponent(fileName)
     
-    assert(NSFileManager.defaultManager().createFileAtPath(filePath, contents: nil, attributes: nil),
+    assert(FileManager.default.createFile(atPath: filePath, contents: nil, attributes: nil),
            "Failed to create default log file path \(filePath).")
     
     return filePath

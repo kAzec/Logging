@@ -11,9 +11,9 @@ import XCTest
 
 let logDirectory: NSString = {
     let directory = (NSTemporaryDirectory() as NSString)
-        .stringByAppendingPathComponent("com.uncosmos.Logging.Tests")
+        .appendingPathComponent("com.uncosmos.Logging.Tests")
     print("Using temporary directory \(directory) for tests.")
-    return directory
+    return directory as NSString
 }()
 
 class LoggingTests: XCTestCase, Logging {
@@ -33,7 +33,7 @@ class LoggingTests: XCTestCase, Logging {
     }
     
     override func tearDown() {
-        let _ = try? NSFileManager.defaultManager().removeItemAtPath(logDirectory as String)
+        let _ = try? FileManager.default.removeItem(atPath: logDirectory as String)
         super.tearDown()
     }
     
@@ -58,7 +58,7 @@ class LoggingTests: XCTestCase, Logging {
     
     func testFileDestination() {
         let fileDestination = FileDestination(atPath:
-            logDirectory.stringByAppendingPathComponent("com.uncosmos.Logging.Tests.log"))!
+            logDirectory.appendingPathComponent("com.uncosmos.Logging.Tests.log"))!
         
         fileDestination.theme = .classic()
         logger.destinations.append(fileDestination)
@@ -67,13 +67,13 @@ class LoggingTests: XCTestCase, Logging {
     
     func testManagedFileDestinationAutoRotating() {
         let managedFileDestination = ManagedFileDestination(inDirectory:
-            logDirectory.stringByAppendingPathComponent("Logs"))
+            logDirectory.appendingPathComponent("Logs"))
         logger.destinations.append(managedFileDestination)
         sendMessage()
         
         XCTAssert(managedFileDestination.managedFileInfos.count == 1)
         
-        NSThread.sleepForTimeInterval(0.250)
+        Thread.sleep(forTimeInterval: 0.250)
         managedFileDestination.rotatingInterval = 0.200
         sendMessage()
         XCTAssert(managedFileDestination.managedFileInfos.count == 2)
@@ -85,17 +85,17 @@ class LoggingTests: XCTestCase, Logging {
     
     func testManagedFileDestinationAutoDeleting() {
         let managedFileDestination = ManagedFileDestination(inDirectory:
-            logDirectory.stringByAppendingPathComponent("Logs"))
+            logDirectory.appendingPathComponent("Logs"))
         logger.destinations.append(managedFileDestination)
         
         sendMessage() // 1
-        NSThread.sleepForTimeInterval(0.100)
+        Thread.sleep(forTimeInterval: 0.100)
         managedFileDestination.rotate() // 2
-        NSThread.sleepForTimeInterval(0.100)
+        Thread.sleep(forTimeInterval: 0.100)
         managedFileDestination.rotate() // 3
-        NSThread.sleepForTimeInterval(0.100)
+        Thread.sleep(forTimeInterval: 0.100)
         managedFileDestination.rotate() // 4
-        NSThread.sleepForTimeInterval(0.100)
+        Thread.sleep(forTimeInterval: 0.100)
         managedFileDestination.rotate() // 5
         
         XCTAssert(managedFileDestination.managedFileInfos.count == 5) // == 5
@@ -103,7 +103,7 @@ class LoggingTests: XCTestCase, Logging {
         managedFileDestination.maximumNumberOfLogFiles = 4
         XCTAssert(managedFileDestination.managedFileInfos.count == 4) // == 4
         
-        NSThread.sleepForTimeInterval(0.250)
+        Thread.sleep(forTimeInterval: 0.250)
         managedFileDestination.expirationInterval = 0.200
         
         XCTAssert(managedFileDestination.managedFileInfos.count == 1) // == 1

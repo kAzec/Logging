@@ -11,7 +11,7 @@ import Foundation
 public final class ManagedFileDestination: LoggerDestination {
     private var currentFile: (stream: UnsafeMutablePointer<FILE>, info: FileInfo)?
     private var managedFilesUsedDiskSpace: UInt = 0
-    private let queue: dispatch_queue_t
+    private let queue: DispatchQueue
     
     /// The formatter used by the receiver to format the log message.
     public var formatter: LogFormatter
@@ -28,7 +28,7 @@ public final class ManagedFileDestination: LoggerDestination {
     /// Its default value is `24 * 60 * 60`, aka one day.
     ///
     /// Setting a value less or equal than zero will disable rotating.
-    public var rotatingInterval: NSTimeInterval {
+    public var rotatingInterval: TimeInterval {
         // These property observers(see below) seem likely that it will cause a little overhead,
         // however it's actually fine since it's rarely change.
         didSet { _rotateIfNeeded() }
@@ -51,7 +51,7 @@ public final class ManagedFileDestination: LoggerDestination {
     /// 
     /// Setting a value less or equal than `rotatingInterval` will cause the rotated log file to be
     /// deleted immediately.
-    public var expirationInterval: NSTimeInterval {
+    public var expirationInterval: TimeInterval {
         didSet { prune() }
     }
     
@@ -111,8 +111,8 @@ public final class ManagedFileDestination: LoggerDestination {
     /// If you want to use a custom `dateFormat`, the new format must be valid so that the formatter
     /// can convert the formatted string back to NSDate. And depending on the values of `rotatingInterval`
     /// and `expirationInterval`, the extracted NSDate should have enough precision.
-    public let dateFormatter: NSDateFormatter = {
-        let formatter = NSDateFormatter()
+    public let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd.HH-mm-ss-SSSS"
         return formatter
     }()
@@ -120,10 +120,10 @@ public final class ManagedFileDestination: LoggerDestination {
     public init(inDirectory directoryPath: String = defaultLogDirectoryPath(),
                 formatter: LogFormatter = defaultFileDestinationFormatter(),
                 theme: FileTheme? = nil,
-                queue: dispatch_queue_t = dispatch_queue_create("uncosmos.kAzec.Logging.managed-file-destination", DISPATCH_QUEUE_SERIAL),
-                rotatingInterval: NSTimeInterval = 24 * 60 * 60,
+                queue: DispatchQueue = DispatchQueue(label: "uncosmos.kAzec.Logging.managed-file-destination", attributes: []),
+                rotatingInterval: TimeInterval = 24 * 60 * 60,
                 maximumLogFileSize: UInt = 0,
-                expirationInterval: NSTimeInterval = 7 * 24 * 60 * 60,
+                expirationInterval: TimeInterval = 7 * 24 * 60 * 60,
                 maximumNumberOfLogFiles: Int = 0,
                 maximumLogFilesDiskSpace: UInt = 0) {
         
@@ -145,7 +145,7 @@ public final class ManagedFileDestination: LoggerDestination {
     /**
      Receive new log use specified parameters. You should not call this method directly.
      */
-    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: NSDate) {
+    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
         // Make preparations.
         if currentFile == nil || rotateNeeded {
             _rotate()
@@ -164,12 +164,12 @@ public final class ManagedFileDestination: LoggerDestination {
         let log = formatter.formatEntry(entry)
         
         // Write log to file asynchronously.
-        dispatch_async(queue) {
+        queue.async {
             let characters = log.UTF8String
             fputs(characters, fileStream)
             
             // Update current file size.
-            let lengthInBytes = UInt(characters.count * sizeof(CChar))
+            let lengthInBytes = UInt(characters.count * MemoryLayout<CChar>.size)
             if self.currentFile != nil {
                 self.currentFile!.info.fileSize += lengthInBytes
                 for index in self.managedFileInfos.indices {
@@ -189,7 +189,7 @@ public final class ManagedFileDestination: LoggerDestination {
     public func flush() {
         queue.sync()
         
-        if let currentFileStream = currentFile?.stream where currentFileStream != nil {
+        if let currentFileStream = currentFile?.stream {
             fflush(currentFileStream)
         }
     }
@@ -203,13 +203,13 @@ public final class ManagedFileDestination: LoggerDestination {
         managedFilesUsedDiskSpace = 0
         
         // Reindex.
-        let fileManager = NSFileManager.defaultManager()
+        let fileManager = FileManager.default
         do {
-            if !fileManager.fileExistsAtPath(directoryPath) {
-                try fileManager.createDirectoryAtPath(directoryPath, withIntermediateDirectories: true, attributes: nil)
+            if !fileManager.fileExists(atPath: directoryPath) {
+                try fileManager.createDirectory(atPath: directoryPath, withIntermediateDirectories: true, attributes: nil)
             }
             
-            let fileNames = try fileManager.contentsOfDirectoryAtPath(directoryPath)
+            let fileNames = try fileManager.contentsOfDirectory(atPath: directoryPath)
             
             managedFileInfos.reserveCapacity(fileNames.count)
             
@@ -238,7 +238,7 @@ public final class ManagedFileDestination: LoggerDestination {
                 managedFileInfos.append(logFileInfo)
             }
             
-            managedFileInfos.sortInPlace { one, other in
+            managedFileInfos.sort { one, other in
                 return one.creationDate.timeIntervalSinceReferenceDate > other.creationDate.timeIntervalSinceReferenceDate
             }
         } catch {
@@ -260,31 +260,31 @@ public final class ManagedFileDestination: LoggerDestination {
         _prune()
     }
     
-    public func dateOfLogFile(named name: String) -> NSDate? {
+    public func dateOfLogFile(named name: String) -> Date? {
         guard name.characters.count > 29 else {
             return nil
         }
         
-        let extensionStartIndex = name.endIndex.advancedBy(-4)
-        guard name.substringFromIndex(extensionStartIndex) == ".log" else {
+        let extensionStartIndex = name.characters.index(name.endIndex, offsetBy: -4)
+        guard name.substring(from: extensionStartIndex) == ".log" else {
             return nil
         }
         
-        let dateStartIndex = extensionStartIndex.advancedBy(-24)
-        let dateString = name.substringWithRange(dateStartIndex..<extensionStartIndex)
-        let prefixString = name.substringToIndex(dateStartIndex.predecessor())
+        let dateStartIndex = name.characters.index(extensionStartIndex, offsetBy: -24)
+        let dateString = name.substring(with: dateStartIndex..<extensionStartIndex)
+        let prefixString = name.substring(to: name.characters.index(before: dateStartIndex))
         
         guard prefixString == staticLogFileNamePrefix() else {
             return nil
         }
         
-        return dateFormatter.dateFromString(dateString)
+        return dateFormatter.date(from: dateString)
     }
 
     deinit {
         queue.sync()
         
-        if let currentFileStream = currentFile?.stream where currentFileStream != nil {
+        if let currentFileStream = currentFile?.stream {
             fclose(currentFileStream)
         }
     }
@@ -312,24 +312,24 @@ public final class ManagedFileDestination: LoggerDestination {
     }
     
     private func _filePath(named name: String) -> String {
-        return (directoryPath as NSString).stringByAppendingPathComponent(name)
+        return (directoryPath as NSString).appendingPathComponent(name)
     }
     
     private func _rotate() {
         // If current log file is opened, flush then close it.
-        if let currentFileStream = currentFile?.stream where currentFileStream != nil {
+        if let currentFileStream = currentFile?.stream {
             queue.sync()
             fclose(currentFileStream)
         }
         
-        let now = NSDate()
+        let now = Date()
         let fileName = String(format: "%@.%@.log",
-                              staticLogFileNamePrefix() as CVarArgType,
-                              dateFormatter.stringFromDate(now) as CVarArgType)
+                              staticLogFileNamePrefix() as CVarArg,
+                              dateFormatter.string(from: now) as CVarArg)
         let filePath = _filePath(named: fileName)
         let fileStream = fopen(filePath.UTF8String, "w")
         
-        if fileStream != nil {
+        if let fileStream = fileStream {
             print("Rotating to new log file: \(fileName)")
             let fileInfo = FileInfo(fileSize: 0, fileName: fileName, creationDate: now)
             currentFile = (fileStream, fileInfo)
@@ -352,9 +352,9 @@ public final class ManagedFileDestination: LoggerDestination {
             return
         }
         
-        let fileManager = NSFileManager.defaultManager()
-        for (index, fileInfo) in managedFileInfos.enumerate().reverse() { // Starting from oldest log file.
-            if let currentFileName = currentFile?.info.fileName where fileInfo.fileName == currentFileName {
+        let fileManager = FileManager.default
+        for (index, fileInfo) in managedFileInfos.enumerated().reversed() { // Starting from oldest log file.
+            if let currentFileName = currentFile?.info.fileName , fileInfo.fileName == currentFileName {
                 // Leave current log file untouched.
                 break
             }
@@ -365,10 +365,10 @@ public final class ManagedFileDestination: LoggerDestination {
             if expired || numberOfLogFilesExceeded || diskQuotaExceeded {
                 let filePath = _filePath(named: fileInfo.fileName)
                 do {
-                    try fileManager.removeItemAtPath(filePath)
+                    try fileManager.removeItem(atPath: filePath)
                     print("Removed log file: \(fileInfo.fileName)")
                     managedFilesUsedDiskSpace -= fileInfo.fileSize
-                    managedFileInfos.removeAtIndex(index)
+                    managedFileInfos.remove(at: index)
                 } catch {
                     if let delegate = delegate {
                         delegate.managedFileDestination(self, didCatchError: error as NSError)
@@ -381,16 +381,16 @@ public final class ManagedFileDestination: LoggerDestination {
     }
     
     public struct FileInfo {
-        private var fileSize: UInt
+        fileprivate var fileSize: UInt
         
         public let fileName: String
-        public let creationDate: NSDate
+        public let creationDate: Date
     }
 }
 
 public protocol ManagedFileDestinationDelegate: class {
-    func managedFileDestination(destination: ManagedFileDestination, shouldDeleteFileAtPath: String) -> Bool
-    func managedFileDestination(destination: ManagedFileDestination, didCatchError: NSError)
+    func managedFileDestination(_ destination: ManagedFileDestination, shouldDeleteFileAtPath: String) -> Bool
+    func managedFileDestination(_ destination: ManagedFileDestination, didCatchError: NSError)
 }
 
 private func staticLogFileNamePrefix() -> String {
@@ -401,6 +401,6 @@ private func defaultLogDirectoryPath() -> String {
     #if os(OSX)
         return App.ensuredLogsDirectoryPath
     #else // iOS, tvOS, watchOS
-        return (App.ensuredLogsDirectoryPath as NSString).stringByAppendingPathComponent(App.identifier ?? App.name)
+        return (App.ensuredLogsDirectoryPath as NSString).appendingPathComponent(App.identifier ?? App.name)
     #endif
 }

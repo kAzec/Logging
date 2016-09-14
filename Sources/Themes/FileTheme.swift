@@ -38,17 +38,17 @@ public struct FileTheme: DestinationTheme {
         self = FileTheme.initialize(foreground: foreground, background: background, components: components)
     }
     
-    static func colorize(string: String, foreground: UInt8?, background: UInt8?) -> String {
+    static func colorize(_ string: String, foreground: UInt8?, background: UInt8?) -> String {
         let f = "\u{001b}[38;5;"
         let b = "\u{001b}[48;5;"
         let r = "\u{001b}[0m"
         
         switch (foreground, background) {
-        case (.Some(let foreground), .Some(let background)):
+        case (.some(let foreground), .some(let background)):
             return f + "\(foreground)m" + b + "\(background)m" + string + r
-        case (.Some(let foreground), .None):
+        case (.some(let foreground), .none):
             return f + "\(foreground)m" + string + r
-        case (.None, .Some(let background)):
+        case (.none, .some(let background)):
             return b + "\(background)m" + string + r
         default:
             return string
@@ -67,12 +67,12 @@ public extension FileTheme {
      
      - returns: A new theme.
      */
-    static func theme(foreground: [(PriorityLevel, Color?)]? = nil, background: [(PriorityLevel, Color?)]? = nil, components: LogComponents) -> FileTheme {
+    static func theme(_ foreground: [(PriorityLevel, Color?)]? = nil, background: [(PriorityLevel, Color?)]? = nil, components: LogComponents) -> FileTheme {
         return FileTheme.initialize(foreground: foreground, background: background, components: components)
     }
     
     /// Default classic theme.
-    static func classic(components: LogComponents = .level) -> FileTheme {
+    static func classic(_ components: LogComponents = .level) -> FileTheme {
         return FileTheme(
             foreground: [
                 (.trace, 102), // #878787
@@ -88,7 +88,7 @@ public extension FileTheme {
     }
     
     /// Default solarized theme.
-    static func solarized(components: LogComponents = .level) -> FileTheme {
+    static func solarized(_ components: LogComponents = .level) -> FileTheme {
         return FileTheme(
             foreground: [
                 (.trace, 109), // #87afaf
@@ -106,7 +106,7 @@ public extension FileTheme {
     }
     
     /// Default flat theme.
-    static func flat(components: LogComponents = .level) -> FileTheme {
+    static func flat(_ components: LogComponents = .level) -> FileTheme {
         return FileTheme(
             foreground: [
                 (.trace, 188), // #d7d7d7

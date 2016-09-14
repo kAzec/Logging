@@ -18,11 +18,11 @@ public struct LogFormatter: CustomStringConvertible {
     /// The date formatter used by the receiver to format date. 
     ///
     /// **Note:** Setting its `dateFormat` property won't affect the receiver's output.
-    public let dateFormatter = NSDateFormatter()
+    public let dateFormatter = DateFormatter()
     
     /// The receiver textual representation.
     public var description: String {
-        return String(format: format, arguments: components.map{ $0.description as CVarArgType })
+        return String(format: format, arguments: components.map{ $0.description as CVarArg })
     }
     
     /**
@@ -38,7 +38,7 @@ public struct LogFormatter: CustomStringConvertible {
         self.components = components
     }
 
-    func formatComponents(level level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: NSDate) -> LogEntry {
+    func formatComponents(level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) -> LogEntry {
         return LogEntry(components.map { option in
             switch option {
             case .date(let format):
@@ -63,8 +63,8 @@ public struct LogFormatter: CustomStringConvertible {
         })
     }
     
-    func formatEntry(entry: LogEntry) -> String {
-        let contents = entry.pairs.map { $0.content as CVarArgType }
+    func formatEntry(_ entry: LogEntry) -> String {
+        let contents = entry.pairs.map { $0.content as CVarArg }
         return String(format: format, arguments: contents)
     }
 }
@@ -133,7 +133,7 @@ public enum LogFormattingComponent: CustomStringConvertible {
     
     public enum CustomContentFormattingOption: CustomStringConvertible {
         case text(String)
-        case closure(Void -> String)
+        case closure((Void) -> String)
         
         /// Description.
         public var description: String {
@@ -157,7 +157,7 @@ public extension LogFormatter {
      
      - returns: A new log formatter.
      */
-    static func format(format: String, components: [LogFormattingComponent]) -> LogFormatter {
+    static func format(_ format: String, components: [LogFormattingComponent]) -> LogFormatter {
         return LogFormatter(format, components)
     }
     
@@ -201,12 +201,12 @@ public extension LogFormatter {
 
 // MARK: - Privates
 private extension LogFormatter {
-    func formatDate(date: NSDate, format: String) -> String {
+    func formatDate(_ date: Date, format: String) -> String {
         dateFormatter.dateFormat = format
-        return dateFormatter.stringFromDate(date)
+        return dateFormatter.string(from: date)
     }
 
-    func formatLevel(level: PriorityLevel, formattingOption: LogFormattingComponent.LevelFormattingOption) -> String {
+    func formatLevel(_ level: PriorityLevel, formattingOption: LogFormattingComponent.LevelFormattingOption) -> String {
         let symbol = level.symbol
         
         switch formattingOption {
@@ -217,11 +217,11 @@ private extension LogFormatter {
         case .equalWidthByPrependingSpace:
             return symbol.characters.count == 4 ? " " + symbol : symbol
         case .equalWidthByTruncatingTail(width: let width):
-            return symbol.characters.count > width ? symbol.substringToIndex(symbol.startIndex.advancedBy(width)) : symbol
+            return symbol.characters.count > width ? symbol.substring(to: symbol.characters.index(symbol.startIndex, offsetBy: width)) : symbol
         }
     }
     
-    func formatFile(file: String, fullPath: Bool, withExtension: Bool) -> String {
+    func formatFile(_ file: String, fullPath: Bool, withExtension: Bool) -> String {
         var file = file
         
         if !fullPath      {
@@ -229,13 +229,13 @@ private extension LogFormatter {
         }
         
         if !withExtension {
-            file = (file as NSString).stringByDeletingPathExtension
+            file = (file as NSString).deletingPathExtension
         }
         
         return file
     }
     
-    func formatFunction(function: String) -> String {
+    func formatFunction(_ function: String) -> String {
         if !function.hasSuffix(")") {
             return function + "(...)"
         } else {
@@ -243,27 +243,27 @@ private extension LogFormatter {
         }
     }
     
-    func formatLocation(file file: String, line: Int) -> String {
+    func formatLocation(file: String, line: Int) -> String {
         return formatFile(file, fullPath: false, withExtension: true) + ":" + String(line)
     }
     
     func formatThread() -> String {
-        if let threadName = NSThread.currentThread().name where !threadName.isEmpty {
+        if let threadName = Thread.current.name , !threadName.isEmpty {
             return threadName
-        } else if NSThread.isMainThread() {
+        } else if Thread.isMainThread {
             return "main"
-        } else if let queueName = String(UTF8String: dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL)) where !queueName.isEmpty {
-            return queueName
+        } else if !DispatchQueue.main.label.isEmpty {
+            return DispatchQueue.main.label
         } else {
-            return NSThread.currentThread().description
+            return Thread.current.description
         }
     }
     
-    func formatMessage(items: [String], separator: String) -> String {
-        return items.joinWithSeparator(separator)
+    func formatMessage(_ items: [String], separator: String) -> String {
+        return items.joined(separator: separator)
     }
     
-    func formatCustom(contentFormattingOption: LogFormattingComponent.CustomContentFormattingOption) -> String {
+    func formatCustom(_ contentFormattingOption: LogFormattingComponent.CustomContentFormattingOption) -> String {
         switch contentFormattingOption {
         case .text(let text):
             return text

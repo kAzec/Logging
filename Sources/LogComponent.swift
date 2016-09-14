@@ -11,7 +11,7 @@ import Foundation
 /**
  Log components option-set.
  */
-public struct LogComponents: OptionSetType {
+public struct LogComponents: OptionSet {
     public let rawValue : Int
     
     public init(rawValue: Int) {

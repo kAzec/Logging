@@ -25,8 +25,8 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func trace(@autoclosure message: Void -> Any, file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.trace)?(items: [String(message())], separator: "", file: file, line: line, function: function)
+    public func trace(_ message: @autoclosure (Void) -> Any, file: String = #file, line: Int = #line, function: String = #function) {
+        logger.log(.trace)?([String(describing: message())], "", file, line, function)
     }
     
     /**
@@ -38,8 +38,8 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func trace<S: SequenceType>(@autoclosure items: Void -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.trace)?(items: items().map{ String($0) }, separator: separator, file: file, line: line, function: function)
+    public func trace<S: Sequence>(_ items: @autoclosure (Void) -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
+        logger.log(.trace)?(items().map{ String(describing: $0) }, separator, file, line, function)
     }
     
     /**
@@ -54,9 +54,9 @@ public extension Logging {
      - parameter function:   The function in which the log happens.
      - parameter closure:    The closure to evaluate the log message.
      */
-    public func trace(file file: String = #file, line: Int = #line, function: String = #function, @noescape closure: Void -> String?) {
+    public func trace(file: String = #file, line: Int = #line, function: String = #function, closure: (Void) -> String?) {
         if let entry = logger.log(.trace), let message = closure() {
-            entry(items: [message], separator: "", file: file, line: line, function: function)
+            entry([message], "", file, line, function)
         }
     }
     
@@ -67,11 +67,11 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func trace(file file: String = #file, line: Int = #line, function: String = #function) {
+    public func trace(file: String = #file, line: Int = #line, function: String = #function) {
         var threadID: UInt64 = 0
         pthread_threadid_np(nil, &threadID)
         
-        logger.log(.trace)?(items: ["Function: \(function). Location: \(file):\(line). Thread ID: \(threadID)"], separator: "", file: file, line: line, function: function)
+        logger.log(.trace)?(["Function: \(function). Location: \(file):\(line). Thread ID: \(threadID)"], "", file, line, function)
     }
     
     /**
@@ -82,8 +82,8 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func debug(@autoclosure message: Void -> Any, file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.debug)?(items: [String(message())], separator: "", file: file, line: line, function: function)
+    public func debug(_ message: @autoclosure (Void) -> Any, file: String = #file, line: Int = #line, function: String = #function) {
+        logger.log(.debug)?([String(describing: message())], "", file, line, function)
     }
     
     /**
@@ -95,8 +95,8 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func debug<S: SequenceType>(@autoclosure items: Void -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.debug)?(items: items().map{ String($0) }, separator: separator, file: file, line: line, function: function)
+    public func debug<S: Sequence>(_ items: @autoclosure (Void) -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
+        logger.log(.debug)?(items().map{ String(describing: $0) }, separator, file, line, function)
     }
     
     /**
@@ -113,9 +113,9 @@ public extension Logging {
      - parameter function:   The function in which the log happens.
      - parameter closure:    The closure to evaluate the log message.
      */
-    public func debug(file: String = #file, line: Int = #line, function: String = #function, @noescape closure: Void -> String?) {
+    public func debug(_ file: String = #file, line: Int = #line, function: String = #function, closure: (Void) -> String?) {
         if let entry = logger.log(.debug), let message = closure() {
-            entry(items: [message], separator: "", file: file, line: line, function: function)
+            entry([message], "", file, line, function)
         }
     }
     
@@ -127,8 +127,8 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func info(@autoclosure message: Void -> Any, file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.info)?(items: [String(message())], separator: "", file: file, line: line, function: function)
+    public func info(_ message: @autoclosure (Void) -> Any, file: String = #file, line: Int = #line, function: String = #function) {
+        logger.log(.info)?([String(describing: message())], "", file, line, function)
     }
     
     /**
@@ -140,8 +140,8 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func info<S: SequenceType>(@autoclosure items: Void -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.info)?(items: items().map{ String($0) }, separator: separator, file: file, line: line, function: function)
+    public func info<S: Sequence>(_ items: @autoclosure (Void) -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
+        logger.log(.info)?(items().map{ String(describing: $0) }, separator, file, line, function)
     }
     
     /**
@@ -157,9 +157,9 @@ public extension Logging {
      - parameter function:   The function in which the log happens.
      - parameter closure:    The closure to evaluate the log message.
      */
-    public func info(file: String = #file, line: Int = #line, function: String = #function, @noescape closure: Void -> String?) {
+    public func info(_ file: String = #file, line: Int = #line, function: String = #function, closure: (Void) -> String?) {
         if let entry = logger.log(.info), let message = closure() {
-            entry(items: [message], separator: "", file: file, line: line, function: function)
+            entry([message], "", file, line, function)
         }
     }
     
@@ -171,8 +171,8 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func warn(@autoclosure message: Void -> Any, file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.warn)?(items: [String(message())], separator: "", file: file, line: line, function: function)
+    public func warn(_ message: @autoclosure (Void) -> Any, file: String = #file, line: Int = #line, function: String = #function) {
+        logger.log(.warn)?([String(describing: message())], "", file, line, function)
     }
     
     /**
@@ -184,8 +184,8 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func warn<S: SequenceType>(@autoclosure items: Void -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.warn)?(items: items().map{ String($0) }, separator: separator, file: file, line: line, function: function)
+    public func warn<S: Sequence>(_ items: @autoclosure (Void) -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
+        logger.log(.warn)?(items().map{ String(describing: $0) }, separator, file, line, function)
     }
     
     /**
@@ -201,9 +201,9 @@ public extension Logging {
      - parameter function:   The function in which the log happens.
      - parameter closure:    The closure to evaluate the log message.
      */
-    public func warn(file: String = #file, line: Int = #line, function: String = #function, @noescape closure: Void -> String?) {
+    public func warn(_ file: String = #file, line: Int = #line, function: String = #function, closure: (Void) -> String?) {
         if let entry = logger.log(.warn), let message = closure() {
-            entry(items: [message], separator: "", file: file, line: line, function: function)
+            entry([message], "", file, line, function)
         }
     }
     
@@ -215,8 +215,8 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func error(@autoclosure message: Void -> Any, file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.error)?(items: [String(message())], separator: "", file: file, line: line, function: function)
+    public func error(_ message: @autoclosure (Void) -> Any, file: String = #file, line: Int = #line, function: String = #function) {
+        logger.log(.error)?([String(describing: message())], "", file, line, function)
     }
     
     /**
@@ -228,8 +228,8 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public func error<S: SequenceType>(@autoclosure items: Void -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.error)?(items: items().map{ String($0) }, separator: separator, file: file, line: line, function: function)
+    public func error<S: Sequence>(_ items: @autoclosure (Void) -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
+        logger.log(.error)?(items().map{ String(describing: $0) }, separator, file, line, function)
     }
     
     /**
@@ -245,9 +245,9 @@ public extension Logging {
      - parameter function:   The function in which the log happens.
      - parameter closure:    The closure to evaluate the log message.
      */
-    public func error(file: String = #file, line: Int = #line, function: String = #function, @noescape closure: Void -> String?) {
+    public func error(_ file: String = #file, line: Int = #line, function: String = #function, closure: (Void) -> String?) {
         if let entry = logger.log(.error), let message = closure() {
-            entry(items: [message], separator: "", file: file, line: line, function: function)
+            entry([message], "", file, line, function)
         }
     }
     
@@ -259,9 +259,9 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    @noreturn
-    public func fatal(@autoclosure message: Void -> Any, file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.fatal)?(items: [String(message())], separator: "", file: file, line: line, function: function)
+    
+    public func fatal(_ message: @autoclosure (Void) -> Any, file: String = #file, line: Int = #line, function: String = #function) -> Never  {
+        logger.log(.fatal)?([String(describing: message())], "", file, line, function)
         logger.flush()
         exit(EXIT_FAILURE)
     }
@@ -275,9 +275,9 @@ public extension Logging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    @noreturn
-    public func fatal<S: SequenceType>(@autoclosure items: Void -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
-        logger.log(.fatal)?(items: items().map{ String($0) }, separator: separator, file: file, line: line, function: function)
+    
+    public func fatal<S: Sequence>(_ items: @autoclosure (Void) -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) -> Never  {
+        logger.log(.fatal)?(items().map{ String(describing: $0) }, separator, file, line, function)
         logger.flush()
         exit(EXIT_FAILURE)
     }
@@ -291,10 +291,10 @@ public extension Logging {
      - parameter function:   The function in which the log happens.
      - parameter closure:    The closure to evaluate the log message.
      */
-    @noreturn
-    public func fatal(file file: String = #file, line: Int = #line, function: String = #function, @noescape closure: Void -> String) {
+    
+    public func fatal(file: String = #file, line: Int = #line, function: String = #function, closure: (Void) -> String) -> Never  {
         let item = closure()
-        logger.log(.fatal)?(items: [item], separator: "", file: file, line: line, function: function)
+        logger.log(.fatal)?([item], "", file, line, function)
         logger.flush()
         exit(EXIT_FAILURE)
     }
@@ -320,13 +320,13 @@ public extension StaticLogging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public static func log(level: PriorityLevel = .debug, @autoclosure _ message: Void -> Any, file: String = #file, line: Int = #line, function: String = #function) {
+    public static func log(_ level: PriorityLevel = .debug, _ message: @autoclosure (Void) -> Any, file: String = #file, line: Int = #line, function: String = #function) {
         if case .fatal = level {
-            logger.log(.fatal)?(items: [String(message())], separator: "", file: file, line: line, function: function)
+            logger.log(.fatal)?([String(describing: message())], "", file, line, function)
             logger.flush()
             exit(EXIT_FAILURE)
         } else {
-            logger.log(level)?(items: [String(message())], separator: "", file: file, line: line, function: function)
+            logger.log(level)?([String(describing: message())], "", file, line, function)
         }
     }
     
@@ -342,13 +342,13 @@ public extension StaticLogging {
      - parameter line:       The line at which the log happens.
      - parameter function:   The function in which the log happens.
      */
-    public static func log<S: SequenceType>(level: PriorityLevel = .debug, @autoclosure _ items: Void -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
+    public static func log<S: Sequence>(_ level: PriorityLevel = .debug, _ items: @autoclosure (Void) -> S, separator: String = " ", file: String = #file, line: Int = #line, function: String = #function) {
         if case .fatal = level {
-            logger.log(.fatal)?(items: items().map{ String($0) }, separator: separator, file: file, line: line, function: function)
+            logger.log(.fatal)?(items().map{ String(describing: $0) }, separator, file, line, function)
             logger.flush()
             exit(EXIT_FAILURE)
         } else {
-            logger.log(.trace)?(items: items().map{ String($0) }, separator: separator, file: file, line: line, function: function)
+            logger.log(.trace)?(items().map{ String(describing: $0) }, separator, file, line, function)
         }
     }
     
@@ -363,16 +363,16 @@ public extension StaticLogging {
      - parameter function:   The function in which the log happens.
      - parameter closure:    The closure to evaluate the log message.
      */
-    public static func log(level: PriorityLevel = .debug, file: String = #file, line: Int = #line, function: String = #function, @noescape closure: Void -> String?) {
+    public static func log(_ level: PriorityLevel = .debug, file: String = #file, line: Int = #line, function: String = #function, closure: (Void) -> String?) {
         if case .fatal = level {
             if let message = closure() {
-                logger.log(.fatal)?(items: [message], separator: "", file: file, line: line, function: function)
+                logger.log(.fatal)?([message], "", file, line, function)
                 logger.flush()
             }
             exit(EXIT_FAILURE)
         } else {
             if let entry = logger.log(level), let message = closure() {
-                entry(items: [message], separator: "", file: file, line: line, function: function)
+                entry([message], "", file, line, function)
             }
         }
     }
