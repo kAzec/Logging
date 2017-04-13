@@ -9,6 +9,7 @@
 import Foundation
 
 public final class Logger: Logging {
+    
     /// Return `self`.
     public var logger: Logger {
         return self
@@ -55,7 +56,7 @@ public final class Logger: Logging {
         
         return { items, separator, file, line, function in
             for destination in self.destinations {
-                destination.receiveLog(ofLevel: level, items: items, separator: separator, file: file, line: line, function: function, date: Date())
+                destination.receiveLog(of: level, items: items, separator: separator, file: file, line: line, function: function, date: Date())
             }
         }
     }
@@ -65,12 +66,14 @@ public final class Logger: Logging {
  *  Logger Destination Protocol.
  */
 public protocol LoggerDestination: class {
-    func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date)
+    
+    func receiveLog(of level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date)
     func flush()
 }
 
 /// Logger Any Destination
 public final class AnyDestination: LoggerDestination {
+    
     public typealias Receiver = (_ level: PriorityLevel, _ items: [String], _ separator: String, _ file: String, _ line: Int, _ function: String, _ date: Date) -> Void
     
     private let receiver: Receiver
@@ -81,7 +84,7 @@ public final class AnyDestination: LoggerDestination {
         self.flusher = flusher
     }
     
-    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
+    public func receiveLog(of level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
         receiver(level, items, separator, file, line, function, date)
     }
     

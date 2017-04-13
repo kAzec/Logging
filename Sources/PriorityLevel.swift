@@ -9,7 +9,8 @@
 import Foundation
 
 /// Log's priority level enums.
-public enum PriorityLevel: Int {
+public enum PriorityLevel : Int {
+    
     case trace, debug, info, warn, error, fatal
     
     static let numberOfLevels: Int = 6
@@ -33,7 +34,7 @@ public enum PriorityLevel: Int {
 }
 
 // MARK: - PriorityLevel + Comparable
-extension PriorityLevel: Comparable {  }
+extension PriorityLevel : Comparable {  }
 
 public func <(x: PriorityLevel, y: PriorityLevel) -> Bool {
     return x.rawValue < y.rawValue

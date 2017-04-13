@@ -9,6 +9,7 @@
 import Foundation
 
 protocol DestinationTheme {
+    
     associatedtype Color
     
     var colors: [(foreground: Color?, background: Color?)] { get }
@@ -20,6 +21,7 @@ protocol DestinationTheme {
 }
 
 extension DestinationTheme {
+    
     var textualRepresentation: String {
         return colors.enumerated().map {
             return Self.colorize(PriorityLevel(rawValue: $0)!.symbol, foreground: $1.foreground, background: $1.background)

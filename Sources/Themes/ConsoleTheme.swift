@@ -12,6 +12,7 @@ import Foundation
  *  Logger ConsoleDestination Theme, based on [XCodeColors](https://github.com/robbiehanson/XcodeColors).
  */
 public struct ConsoleTheme: DestinationTheme, CustomStringConvertible {
+    
     public typealias Color = UInt32
     typealias Colors = [(foreground: Color?, background: Color?)]
     
@@ -58,6 +59,7 @@ public struct ConsoleTheme: DestinationTheme, CustomStringConvertible {
 
 // MARK: - ConsoleTheme + Creations
 public extension ConsoleTheme {
+    
     /**
      Conveniently create a new theme for logger destination.
      

@@ -12,11 +12,13 @@ import Foundation
  *  Logging Protocol.
  */
 public protocol Logging {
+    
     var logger: Logger { get }
 }
 
 // MARK: - Logging Methods
 public extension Logging {
+    
     /**
      Log message with trace severity level.
      

@@ -62,6 +62,9 @@
 		4CB692651D69972E008B999B /* DestinationTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CB692641D69972E008B999B /* DestinationTheme.swift */; };
 		4CB692671D69974E008B999B /* FileTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CB692661D69974E008B999B /* FileTheme.swift */; };
 		4CB6927C1D69BC66008B999B /* ManagedFileDestination.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CB6927B1D69BC66008B999B /* ManagedFileDestination.swift */; };
+		4CCE737C1E9F73B500EC4F63 /* Logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C40B2DD1D6578A50082DFD7 /* Logging.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4CCE737D1E9F73BD00EC4F63 /* Logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C40B2DD1D6578A50082DFD7 /* Logging.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4CCE737E1E9F73C000EC4F63 /* Logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C40B2DD1D6578A50082DFD7 /* Logging.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -154,7 +157,6 @@
 			isa = PBXGroup;
 			children = (
 				4C40B2DC1D6578A50082DFD7 /* Sources */,
-				4C40B2E51D6578D10082DFD7 /* Supporting Files */,
 				4C00F9531D71AE3900483ED2 /* Tests */,
 				4C40B2DB1D6578A50082DFD7 /* Products */,
 			);
@@ -175,6 +177,8 @@
 		4C40B2DC1D6578A50082DFD7 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				4C40B2DF1D6578A50082DFD7 /* Info.plist */,
+				4C40B2DD1D6578A50082DFD7 /* Logging.h */,
 				4CE6D9651D68CB73003FC5E1 /* CASL */,
 				4C77FCA71D722CF9005997BC /* Destinations */,
 				4C77FCA81D722D0D005997BC /* Themes */,
@@ -186,15 +190,6 @@
 				4C29F3741D67926E00339756 /* Extensions.swift */,
 			);
 			path = Sources;
-			sourceTree = "<group>";
-		};
-		4C40B2E51D6578D10082DFD7 /* Supporting Files */ = {
-			isa = PBXGroup;
-			children = (
-				4C40B2DF1D6578A50082DFD7 /* Info.plist */,
-				4C40B2DD1D6578A50082DFD7 /* Logging.h */,
-			);
-			path = "Supporting Files";
 			sourceTree = "<group>";
 		};
 		4C77FCA71D722CF9005997BC /* Destinations */ = {
@@ -234,6 +229,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4CCE737C1E9F73B500EC4F63 /* Logging.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -241,6 +237,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4CCE737E1E9F73C000EC4F63 /* Logging.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,6 +245,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4CCE737D1E9F73BD00EC4F63 /* Logging.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -364,7 +362,7 @@
 				TargetAttributes = {
 					4C00F9511D71AE3900483ED2 = {
 						CreatedOnToolsVersion = 7.3.1;
-						LastSwiftMigration = 0800;
+						LastSwiftMigration = 0830;
 					};
 					4C00F9611D7217B900483ED2 = {
 						CreatedOnToolsVersion = 7.3.1;
@@ -381,6 +379,7 @@
 					};
 					4C40B2D91D6578A50082DFD7 = {
 						CreatedOnToolsVersion = 7.3.1;
+						LastSwiftMigration = 0830;
 					};
 				};
 			};
@@ -575,7 +574,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				INFOPLIST_FILE = "$(SRCROOT)/Supporting Files/Info.plist";
+				INFOPLIST_FILE = Sources/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 9.3;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
@@ -597,7 +596,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				INFOPLIST_FILE = "$(SRCROOT)/Supporting Files/Info.plist";
+				INFOPLIST_FILE = Sources/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 9.3;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
@@ -622,7 +621,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				INFOPLIST_FILE = "$(SRCROOT)/Supporting Files/Info.plist";
+				INFOPLIST_FILE = Sources/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.uncosmos.Logging;
@@ -645,7 +644,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				INFOPLIST_FILE = "$(SRCROOT)/Supporting Files/Info.plist";
+				INFOPLIST_FILE = Sources/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.uncosmos.Logging;
@@ -669,7 +668,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				INFOPLIST_FILE = "$(SRCROOT)/Supporting Files/Info.plist";
+				INFOPLIST_FILE = Sources/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.uncosmos.Logging;
@@ -691,7 +690,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				INFOPLIST_FILE = "$(SRCROOT)/Supporting Files/Info.plist";
+				INFOPLIST_FILE = Sources/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.uncosmos.Logging;
@@ -811,7 +810,7 @@
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				FRAMEWORK_VERSION = A;
-				INFOPLIST_FILE = "Supporting Files/Info.plist";
+				INFOPLIST_FILE = Sources/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.uncosmos.Logging;
@@ -834,7 +833,7 @@
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				FRAMEWORK_VERSION = A;
-				INFOPLIST_FILE = "Supporting Files/Info.plist";
+				INFOPLIST_FILE = Sources/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.uncosmos.Logging;

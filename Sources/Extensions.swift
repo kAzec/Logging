@@ -38,17 +38,18 @@ typealias App = NSApplication
 #endif
 
 extension App {
-    class var identifier: String? {
+    
+    static var identifier: String? {
         return Bundle.main.infoDictionary?[String(kCFBundleIdentifierKey)] as? String
     }
     
-    class var name: String {
+    static var name: String {
         return ProcessInfo.processInfo.processName
     }
     
     /// Path to "Logs" directory, "~/Library/Logs" for macOS and "\<Bundle\>/Library/Caches/Logs"
     /// for iOS, tvOS, watchOS
-    class var logsDirectoryPath: String {
+    static var logsDirectoryPath: String {
         #if os(OSX)
             let pathes = NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true)
             return ((pathes.first ?? NSTemporaryDirectory()) as NSString).appendingPathComponent("Logs")
@@ -59,7 +60,7 @@ extension App {
         #endif
     }
     
-    class var ensuredLogsDirectoryPath: String {
+    static var ensuredLogsDirectoryPath: String {
         let directoryPath = logsDirectoryPath
         if !FileManager.default.fileExists(atPath: directoryPath) {
             do {
@@ -74,6 +75,7 @@ extension App {
 }
 
 extension FileManager {
+    
     func isDirectory(_ directoryPath: String) -> Bool {
         var result: ObjCBool = false
         return fileExists(atPath: directoryPath, isDirectory: &result) && result.boolValue

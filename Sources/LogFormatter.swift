@@ -12,6 +12,7 @@ import Foundation
  *  Log Formatter.
  */
 public struct LogFormatter: CustomStringConvertible {
+    
     private let format: String
     private let components: [LogFormattingComponent]
     
@@ -73,6 +74,7 @@ public struct LogFormatter: CustomStringConvertible {
  Log component formatting option.
  */
 public enum LogFormattingComponent: CustomStringConvertible {
+    
     case date(format: String)
     case level(LevelFormattingOption)
     case file(fullPath: Bool, withExtension: Bool)
@@ -149,6 +151,7 @@ public enum LogFormattingComponent: CustomStringConvertible {
 
 // MARK: - LogFormatters + Creations
 public extension LogFormatter {
+    
     /**
      Conveniently create a new log formatter.
      
@@ -201,6 +204,7 @@ public extension LogFormatter {
 
 // MARK: - Privates
 private extension LogFormatter {
+    
     func formatDate(_ date: Date, format: String) -> String {
         dateFormatter.dateFormat = format
         return dateFormatter.string(from: date)

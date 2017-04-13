@@ -10,6 +10,7 @@ import Foundation
 import CASL
 
 public final class ASLDestination: LoggerDestination {
+    
     private let queue: DispatchQueue
     
     public var formatter: LogFormatter
@@ -19,7 +20,7 @@ public final class ASLDestination: LoggerDestination {
                 facility: String = App.identifier ?? "com.uncosmos.Logging",
                 options: Options = .none,
                 formatter: LogFormatter = defaultASLDestinationFormatter(),
-                queue: DispatchQueue = DispatchQueue(label: "uncosmos.kAzec.Logging.asl-destination", attributes: [])) {
+                queue: DispatchQueue = DispatchQueue(label: "com.uncosmos.Logging.asl", qos: .background)) {
         
         self.queue = queue
         self.formatter = formatter
@@ -32,7 +33,7 @@ public final class ASLDestination: LoggerDestination {
         }
     }
     
-    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
+    public func receiveLog(of level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
         queue.async {
             let entry = self.formatter.formatComponents(level: level, items: items, separator: separator, file: file, line: line, function: function, date: date)
             let log = self.formatter.formatEntry(entry)

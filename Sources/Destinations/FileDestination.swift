@@ -19,7 +19,7 @@ public final class FileDestination: LoggerDestination {
     public init?(atPath filePath: String = defaultLogFilePath(),
                  formatter: LogFormatter = defaultFileDestinationFormatter(),
                  theme: FileTheme? = nil,
-                 queue: DispatchQueue = DispatchQueue(label: "uncosmos.kAzec.Logging.file-destination", attributes: [])) {
+                 queue: DispatchQueue = DispatchQueue(label: "com.uncosmos.Logging.file", attributes: [])) {
         
         // Make sure that filePath is accessible.
         let fileManager = FileManager.default
@@ -46,7 +46,7 @@ public final class FileDestination: LoggerDestination {
         self.theme = theme
     }
     
-    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
+    public func receiveLog(of level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
         guard self.fileStream != nil else {
             return
         }

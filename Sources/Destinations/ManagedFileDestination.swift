@@ -9,6 +9,7 @@
 import Foundation
 
 public final class ManagedFileDestination: LoggerDestination {
+    
     private var currentFile: (stream: UnsafeMutablePointer<FILE>, info: FileInfo)?
     private var managedFilesUsedDiskSpace: UInt = 0
     private let queue: DispatchQueue
@@ -31,7 +32,7 @@ public final class ManagedFileDestination: LoggerDestination {
     public var rotatingInterval: TimeInterval {
         // These property observers(see below) seem likely that it will cause a little overhead,
         // however it's actually fine since it's rarely change.
-        didSet { _rotateIfNeeded() }
+        didSet { rotateIfNeeded() }
     }
     
     /// Maximum file size(in bytes) of current log file can use. The limit will be checked every
@@ -40,7 +41,7 @@ public final class ManagedFileDestination: LoggerDestination {
     ///
     /// Its default value is 0, which disables this limit.
     public var maximumLogFileSize: UInt {
-        didSet { _rotateIfNeeded() }
+        didSet { rotateIfNeeded() }
     }
     
     /// Time interval before a log file expires and gets deleted.
@@ -79,7 +80,7 @@ public final class ManagedFileDestination: LoggerDestination {
     /// The path to the current log file to write logs, if opened.
     public var currentLogFilePath: String? {
         if let currentFileName = currentFile?.info.fileName {
-            return _filePath(named: currentFileName)
+            return makeFilePath(named: currentFileName)
         } else {
             return nil
         }
@@ -95,7 +96,7 @@ public final class ManagedFileDestination: LoggerDestination {
     ///
     /// The first item in the array will be the most recently created log file.
     public var managedFilePaths: [String] {
-        return managedFileInfos.map{ _filePath(named: $0.fileName) }
+        return managedFileInfos.map{ makeFilePath(named: $0.fileName) }
     }
 
     /// The date formatter used by the receiver to generate names of the log files and determine
@@ -120,7 +121,7 @@ public final class ManagedFileDestination: LoggerDestination {
     public init(inDirectory directoryPath: String = defaultLogDirectoryPath(),
                 formatter: LogFormatter = defaultFileDestinationFormatter(),
                 theme: FileTheme? = nil,
-                queue: DispatchQueue = DispatchQueue(label: "uncosmos.kAzec.Logging.managed-file-destination", attributes: []),
+                queue: DispatchQueue = DispatchQueue(label: "com.uncosmos.Logging.managed-file", qos: .background),
                 rotatingInterval: TimeInterval = 24 * 60 * 60,
                 maximumLogFileSize: UInt = 0,
                 expirationInterval: TimeInterval = 7 * 24 * 60 * 60,
@@ -145,10 +146,10 @@ public final class ManagedFileDestination: LoggerDestination {
     /**
      Receive new log use specified parameters. You should not call this method directly.
      */
-    public func receiveLog(ofLevel level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
+    public func receiveLog(of level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
         // Make preparations.
         if currentFile == nil || rotateNeeded {
-            _rotate()
+            rotateForcely()
             prune()
         }
         
@@ -214,7 +215,7 @@ public final class ManagedFileDestination: LoggerDestination {
             managedFileInfos.reserveCapacity(fileNames.count)
             
             for fileName in fileNames {
-                let filePath = _filePath(named: fileName)
+                let filePath = makeFilePath(named: fileName)
                 guard !fileManager.isDirectory(filePath) else {
                     continue
                 }
@@ -251,13 +252,13 @@ public final class ManagedFileDestination: LoggerDestination {
     }
     
     public func rotate() {
-        _rotate()
+        rotateForcely()
         prune()
     }
     
     public func prune() {
         reindex()
-        _prune()
+        pruneForcely()
     }
     
     public func dateOfLogFile(named name: String) -> Date? {
@@ -311,11 +312,11 @@ public final class ManagedFileDestination: LoggerDestination {
         return maximumNumberOfLogFiles > 0 && managedFileInfos.count > maximumNumberOfLogFiles
     }
     
-    private func _filePath(named name: String) -> String {
+    private func makeFilePath(named name: String) -> String {
         return (directoryPath as NSString).appendingPathComponent(name)
     }
     
-    private func _rotate() {
+    private func rotateForcely() {
         // If current log file is opened, flush then close it.
         if let currentFileStream = currentFile?.stream {
             queue.sync()
@@ -326,7 +327,7 @@ public final class ManagedFileDestination: LoggerDestination {
         let fileName = String(format: "%@.%@.log",
                               staticLogFileNamePrefix() as CVarArg,
                               dateFormatter.string(from: now) as CVarArg)
-        let filePath = _filePath(named: fileName)
+        let filePath = makeFilePath(named: fileName)
         let fileStream = fopen(filePath.UTF8String, "w")
         
         if let fileStream = fileStream {
@@ -338,15 +339,15 @@ public final class ManagedFileDestination: LoggerDestination {
         }
     }
     
-    private func _rotateIfNeeded() {
+    private func rotateIfNeeded() {
         if rotateNeeded {
-            _rotate()
+            rotateForcely()
             reindex()
-            _prune()
+            pruneForcely()
         }
     }
     
-    private func _prune() {
+    private func pruneForcely() {
         guard expirationInterval > 0 || maximumNumberOfLogFiles > 0 || maximumLogFilesDiskSpace > 0 else {
             // All limits are disabled, no need to prune.
             return
@@ -363,7 +364,7 @@ public final class ManagedFileDestination: LoggerDestination {
                 && -fileInfo.creationDate.timeIntervalSinceNow > expirationInterval
             
             if expired || numberOfLogFilesExceeded || diskQuotaExceeded {
-                let filePath = _filePath(named: fileInfo.fileName)
+                let filePath = makeFilePath(named: fileInfo.fileName)
                 do {
                     try fileManager.removeItem(atPath: filePath)
                     print("Removed log file: \(fileInfo.fileName)")

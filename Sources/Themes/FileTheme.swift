@@ -9,6 +9,7 @@
 import Foundation
 
 public struct FileTheme: DestinationTheme {
+    
     public typealias Color = UInt8
     typealias Colors = [(foreground: Color?, background: Color?)]
     
