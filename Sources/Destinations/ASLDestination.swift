@@ -1,126 +1,89 @@
 //
-//  ASLDestination.swift
+//  LogEntry.swift
 //  Logging
 //
-//  Created by 锋炜 刘 on 16/8/19.
-//  Copyright © 2016年 kAzec. All rights reserved.
+//  Created by Fengwei Liu on 14/04/2017.
+//  Copyright © 2017 kAzec. All rights reserved.
 //
 
-import Foundation
+import Dispatch
 import CASL
 
-public final class ASLDestination: LoggerDestination {
+public final class ASLDestination: LogDestination {
     
-    private let queue: DispatchQueue
+    public let queue: DispatchQueue?
+    public let formatter: LogFormatter?
     
-    public var formatter: LogFormatter
-    public let underlayingClient: asl_object_t
+    /// The identity of the asl client.
+    public let identity: String
     
-    public init(identity: String = App.name,
-                facility: String = App.identifier ?? "com.uncosmos.Logging",
-                options: Options = .none,
-                formatter: LogFormatter = defaultASLDestinationFormatter(),
-                queue: DispatchQueue = DispatchQueue(label: "com.uncosmos.Logging.asl", qos: .background)) {
+    /// The facility of the asl client.
+    public let facility: String
+    
+    private var client: asl_object_t?
+    
+    private var isConnected: Bool {
+        return client != nil && asl_get_type(client) != ASL_TYPE_UNDEF
+    }
+    
+    public init(identity: String = ProcessInfo.processInfo.processName,
+                facility: String = Bundle.main.bundleIdentifier ?? "com.uncosmos.Logging",
+                formatter: LogFormatter? = .barebone,
+                queue: DispatchQueue? = DispatchQueue(label: "com.uncosmos.Logging.asl", qos: .background)) {
         
         self.queue = queue
         self.formatter = formatter
-        self.underlayingClient = asl_open(identity.UTF8String, facility.UTF8String, options.rawValue)
-        
-        if asl_get_type(underlayingClient) == ASL_TYPE_UNDEF {
-            assertionFailure("Failed to initialize asl client.")
-        } else {
-            asl_set_filter(underlayingClient, priorityLevelFilterMaskUpTo(ASL_LEVEL_DEBUG))
-        }
+        self.identity = identity
+        self.facility = facility
+        self.client = nil
     }
     
-    public func receiveLog(of level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
-        queue.async {
-            let entry = self.formatter.formatComponents(level: level, items: items, separator: separator, file: file, line: line, function: function, date: date)
-            let log = self.formatter.formatEntry(entry)
-            let message = makeASLMessage(forLevel: level, content: log)
-            
-            asl_send(self.underlayingClient, message)
-            
-            asl_release(message)
-        }
-    }
-    
-    public func flush() {
-        queue.sync()
-        flushStdErr()
-    }
-    
-    private func flushStdErr() {
-        let optionsString = asl_get(underlayingClient, ASL_KEY_OPTION)
-        
-        if optionsString != nil {
-            let options = Options(rawValue: UInt32(String(describing: optionsString))!)
-            if options.contains(.stdErr) {
-                fflush(stderr)
+    public func initialize() {
+        self.client = facility.withCString { facility in
+            return identity.withCString { identity in
+                asl_open(identity, facility, 0)
             }
         }
-    }
-    
-    deinit {
-        flushStdErr()
-        asl_close(underlayingClient)
-    }
-    
-    public struct Options: OptionSet {
-        public let rawValue: UInt32
         
-        public init(rawValue: UInt32) {
-            self.rawValue = rawValue
+        if isConnected {
+            asl_set_filter(client, levelFilterMask(upTo: ASL_LEVEL_DEBUG))
+        } else {
+            assertionFailure("Failed to initialize asl client.")
         }
-        
-        /// An `ASLDestination.Options` value wherein none of the bit flags are set.
-        public static let none      = Options(rawValue: 0)
-        
-        /// An `ASLDestination.Options` value with the `ASL_OPT_STDERR` flag set.
-        public static let stdErr    = Options(rawValue: 0x00000001)
-        
-        /// An `ASLDestination.Options` value with the `ASL_OPT_NO_DELAY` flag set.
-        public static let noDelay   = Options(rawValue: 0x00000002)
-        
-        /// An `ASLDestination.Options` value with the `ASL_OPT_NO_REMOTE` flag set.
-        public static let noRemote  = Options(rawValue: 0x00000004)
     }
-
+    
+    public func deinitialize() {
+        asl_close(client)
+        self.client = nil
+    }
+    
+    public func write(_ entry: LogEntry) {
+        if isConnected {
+            let aslMessage = asl_new(UInt32(ASL_TYPE_MSG))
+            let (time, timeFraction) = modf(entry.date.timeIntervalSince1970)
+            
+            if asl_set(aslMessage, ASL_KEY_LEVEL, aslLevelStrings[entry.level.rawValue]) == 0
+                && entry.content.withCString({ asl_set(aslMessage, ASL_KEY_MSG, $0) }) == 0
+                && asl_set(aslMessage, ASL_KEY_READ_UID, String(geteuid())) == 0
+                && asl_set(aslMessage, ASL_KEY_TIME, String(Int(time))) == 0
+                && asl_set(aslMessage, ASL_KEY_TIME_NSEC, String(Int(timeFraction * 10e9))) == 0 {
+                
+                asl_send(client, aslMessage)
+            }
+            
+            asl_release(aslMessage)
+        }
+    }
 }
 
-private func priorityLevelFilterMaskUpTo(_ level: Int32) -> Int32 {
+private func levelFilterMask(upTo level: Int32) -> Int32 {
     return (1 << (level + 1)) - 1
 }
 
-private func aslPrioprityLevelString(fromLevel level: PriorityLevel) -> String {
-    switch level {
-    case .trace, .debug:
-        return ASL_STRING_DEBUG
-    case .info:
-        return ASL_STRING_NOTICE
-    case .warn:
-        return ASL_STRING_WARNING
-    case .error:
-        return ASL_STRING_ERR
-    case .fatal:
-        return ASL_STRING_CRIT
-    }
-}
-
-private func makeASLMessage(forLevel level: PriorityLevel, content: String) -> asl_object_t {
-    let message = asl_new(UInt32(ASL_TYPE_MSG))
-    asl_set(message, ASL_KEY_LEVEL, aslPrioprityLevelString(fromLevel: level))
-    asl_set(message, ASL_KEY_MSG, content.UTF8String)
-    // ASL_KEY_READ_UID attribute determines the processes that can
-    // read this log entry. -1 means anyone can read.
-    asl_set(message, ASL_KEY_READ_UID, "-1")
-    return message!
-}
-
-private func defaultASLDestinationFormatter() -> LogFormatter {
-    return LogFormatter("%@ : %@", [
-        .level(.none),
-        .message
-        ]
-    )
-}
+private let aslLevelStrings = [
+    ASL_STRING_DEBUG,
+    ASL_STRING_NOTICE,
+    ASL_STRING_WARNING,
+    ASL_STRING_ERR,
+    ASL_STRING_CRIT
+]

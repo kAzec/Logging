@@ -1,245 +1,138 @@
 //
-//  LogFormatter.swift
+//  LogEntry.swift
 //  Logging
 //
-//  Created by 锋炜 刘 on 16/8/18.
-//  Copyright © 2016年 kAzec. All rights reserved.
+//  Created by Fengwei Liu on 14/04/2017.
+//  Copyright © 2017 kAzec. All rights reserved.
 //
 
 import Foundation
 
-/**
- *  Log Formatter.
- */
-public struct LogFormatter: CustomStringConvertible {
+open class LogFormatter: CustomStringConvertible {
     
-    private let format: String
-    private let components: [LogFormattingComponent]
-    
-    /// The date formatter used by the receiver to format date. 
-    ///
-    /// **Note:** Setting its `dateFormat` property won't affect the receiver's output.
-    public let dateFormatter = DateFormatter()
-    
-    /// The receiver textual representation.
-    public var description: String {
-        return String(format: format, arguments: components.map{ $0.description as CVarArg })
-    }
-    
-    /**
-     Initializes a new formatter with the specified format and components.
-     
-     - parameter format:     The formatter's format.
-     - parameter components: The formatter's components.
-     
-     - returns: A new formatter.
-     */
-    public init(_ format: String, _ components: [LogFormattingComponent]) {
-        self.format = format
-        self.components = components
-    }
-
-    func formatComponents(level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) -> LogEntry {
-        return LogEntry(components.map { option in
-            switch option {
-            case .date(let format):
-                return (.date, formatDate(date, format: format))
-            case .level(let option):
-                return (.level, formatLevel(level, formattingOption: option))
-            case .file(let fullPath, let withExtension):
-                return (.file, formatFile(file, fullPath: fullPath, withExtension: withExtension))
-            case .function:
-                return (.function, formatFunction(function))
-            case .line:
-                return (.line, String(line))
-            case .location:
-                return (.location, formatLocation(file: file, line: line))
-            case .thread:
-                return (.thread, formatThread())
+    public enum Field: CustomStringConvertible {
+        
+        public enum LevelStyle {
+            case decimal, text, truncatedText(width: Int), custom([String])
+        }
+        
+        public enum DateStyle {
+            case unixTime, format(String)
+        }
+        
+        public enum ThreadIDStyle {
+            case decimal, hexadecimal
+        }
+        
+        case level(style: LevelStyle)
+        case message
+        case function
+        case file(fullPath: Bool, withExtension: Bool)
+        case line
+        case location(fullPath: Bool)
+        case date(style: DateStyle)
+        case threadID(style: ThreadIDStyle)
+        case closure(() -> String)
+        
+        public var description: String {
+            switch self {
+            case .level(let style):
+                return "#level(\(style))"
             case .message:
-                return (.message, formatMessage(items, separator: separator))
-            case .custom(identifier: _, content: let content):
-                return (.custom, formatCustom(content))
-            }
-        })
-    }
-    
-    func formatEntry(_ entry: LogEntry) -> String {
-        let contents = entry.pairs.map { $0.content as CVarArg }
-        return String(format: format, arguments: contents)
-    }
-}
-
-/**
- Log component formatting option.
- */
-public enum LogFormattingComponent: CustomStringConvertible {
-    
-    case date(format: String)
-    case level(LevelFormattingOption)
-    case file(fullPath: Bool, withExtension: Bool)
-    case line
-    case function
-    case location
-    case thread
-    case message
-    case custom(identifier: String, content: CustomContentFormattingOption)
-    
-    /// Description.
-    public var description: String {
-        switch self {
-        case .date(format: let format):
-            return "#date(format: \"\(format)\")"
-        case .level(let option):
-            return "#level(\(option))"
-        case .file(fullPath: let fullPath, withExtension: let withExtension):
-            return "#file(fullPath: \(fullPath), withExtension: \(withExtension))"
-        case .line:
-            return "#line"
-        case .function:
-            return "#function"
-        case .location:
-            return "#location"
-        case .thread:
-            return "#thread"
-        case .message:
-            return "#message"
-        case .custom(identifier: let identifier, content: let content):
-            return "#custom(identifier: \"\(identifier)\", content: \(content))"
-        }
-    }
-    
-    /**
-     LogFormatter `.level` component formatting options.
-     */
-    public enum LevelFormattingOption: CustomStringConvertible {
-        case none
-        case equalWidthByPrependingSpace
-        case equalWidthByAppendingSpace
-        case equalWidthByTruncatingTail(width: Int)
-        
-        /// Description.
-        public var description: String {
-            switch self {
-            case .none:
-                return ".none"
-            case .equalWidthByPrependingSpace:
-                return ".equalWidthByPrependingSpace"
-            case .equalWidthByAppendingSpace:
-                return ".equalWidthByAppendingSpace"
-            case .equalWidthByTruncatingTail(width: let width):
-                return ".equalWidthByTruncatingTail(width: \(width))"
-            }
-        }
-    }
-    
-    public enum CustomContentFormattingOption: CustomStringConvertible {
-        case text(String)
-        case closure((Void) -> String)
-        
-        /// Description.
-        public var description: String {
-            switch self {
-            case .text(let text):
-                return ".text(\"\(text)\")"
+                return "#message"
+            case .function:
+                return "#function"
+            case .file(fullPath: let fullPath, withExtension: let withExtension):
+                return "#file(fullPath: \(fullPath), withExtension: \(withExtension))"
+            case .line:
+                return "#line"
+            case .location(let fullPath):
+                return "#location(fullPath: \(fullPath))"
+            case .date(let style):
+                return "#date(\(style))"
+            case .threadID:
+                return "#threadID"
             case .closure:
-                return ".closure"
+                return "#closure"
             }
         }
     }
-}
-
-// MARK: - LogFormatters + Creations
-public extension LogFormatter {
     
-    /**
-     Conveniently create a new log formatter.
-     
-     - parameter format:     The format of the new log formatter.
-     - parameter components: The formatting components of the new log formatter.
-     
-     - returns: A new log formatter.
-     */
-    static func format(_ format: String, components: [LogFormattingComponent]) -> LogFormatter {
-        return LogFormatter(format, components)
+    public let format: String
+    public let fields: [Field]
+    public lazy var dateFormatter = DateFormatter()
+    
+    /// The textual representation of the log formatter.
+    public var description: String {
+        return String(format: format, arguments: fields.map{ $0.description as CVarArg })
     }
     
-    /// Default minimal formatter.
-    static let minimal = LogFormatter("%@ | %@ > %@", [
-        .level(.equalWidthByTruncatingTail(width: 1)),
-        .location,
-        .message
-        ]
-    )
-    
-    /// Default concise formatter.
-    public static let concise = LogFormatter("[%@] %@ | %@ > %@", [
-        .date(format: "HH:mm:ss"),
-        .level(.equalWidthByTruncatingTail(width: 4)),
-        .location,
-        .message
-        ]
-    )
-    
-    /// Default basic formatter.
-    public static let basic = LogFormatter("[%@] %@ | %@ > %@", [
-        .date(format: "yyyy-MM-dd HH:mm:ss.SSS"),
-        .level(.equalWidthByPrependingSpace),
-        .location,
-        .message
-        ]
-    )
-    
-    /// Default verbose formatter.
-    public static let verbose = LogFormatter("[%@] %@ | %@:%@ - %@\n> %@", [
-        .date(format: "yyyy-MM-dd HH:mm:ss.SSS"),
-        .level(.equalWidthByPrependingSpace),
-        .file(fullPath: false, withExtension: true),
-        .line,
-        .function,
-        .message
-        ]
-    )
-}
-
-// MARK: - Privates
-private extension LogFormatter {
-    
-    func formatDate(_ date: Date, format: String) -> String {
-        dateFormatter.dateFormat = format
-        return dateFormatter.string(from: date)
+    /// Create a new log formatter with the specified format and fields.
+    ///
+    /// - parameter format: The formatter's format. The newline character will be automatically appended if it does not
+    ///                     end with one.
+    /// - parameter fields: The formatter's fields.
+    ///
+    /// - returns: A new log formatter.
+    public init(format: String, fields: [Field]) {
+        self.format = format.characters.last! == "\n" ? format : format + "\n"
+        self.fields = fields
     }
-
-    func formatLevel(_ level: PriorityLevel, formattingOption: LogFormattingComponent.LevelFormattingOption) -> String {
-        let symbol = level.symbol
+    
+    final func formatEvent(_ event: LogEvent) -> LogEntry {
+        let formattedComponents: [CVarArg] = fields.map{ field in
+            switch field {
+            case .level(let style):
+                return formatLevel(event.level, style: style)
+            case .message:
+                return formatMessage(event.message)
+            case .function:
+                return formatFunction(event.function)
+            case .file(let fullPath, let withExtension):
+                return formatFile(event.file, fullPath: fullPath, withExtension: withExtension)
+            case .line:
+                return formatLine(event.line)
+            case .location(let fullPath):
+                return formatLocation(file: event.file, line: event.line, fullPath: fullPath)
+            case .date(let style):
+                return formatDate(event.date, style: style)
+            case .threadID(let style):
+                return formatThreadID(event.threadID, style: style)
+            case .closure(let closure):
+                return formatClosure(closure)
+            }
+        }
         
-        switch formattingOption {
-        case .none:
-            return symbol
-        case .equalWidthByAppendingSpace:
+        let messageContent = String(format: format, arguments: formattedComponents)
+        return LogEntry(level: event.level, content: messageContent, date: event.date,
+                          threadID: event.threadID)
+    }
+    
+    open func formatLevel(_ level: LogPriorityLevel, style: Field.LevelStyle) -> String {
+        switch style {
+        case .decimal:
+            return String(stringInterpolationSegment: level.rawValue)
+        case .text:
+            let symbol = level.description
             return symbol.characters.count == 4 ? symbol + " " : symbol
-        case .equalWidthByPrependingSpace:
-            return symbol.characters.count == 4 ? " " + symbol : symbol
-        case .equalWidthByTruncatingTail(width: let width):
-            return symbol.characters.count > width ? symbol.substring(to: symbol.characters.index(symbol.startIndex, offsetBy: width)) : symbol
+        case .truncatedText(let width):
+            let symbol = level.description
+            if symbol.characters.count > width {
+                let truncatedCharacters = symbol.characters.prefix(width)
+                return String(truncatedCharacters)
+            } else {
+                return symbol
+            }
+        case .custom(let symbols):
+            return symbols[level.rawValue]
         }
     }
     
-    func formatFile(_ file: String, fullPath: Bool, withExtension: Bool) -> String {
-        var file = file
-        
-        if !fullPath      {
-            file = (file as NSString).lastPathComponent
-        }
-        
-        if !withExtension {
-            file = (file as NSString).deletingPathExtension
-        }
-        
-        return file
+    open func formatMessage(_ message: String) -> String {
+        return message
     }
     
-    func formatFunction(_ function: String) -> String {
+    open func formatFunction(_ function: String) -> String {
         if !function.hasSuffix(")") {
             return function + "(...)"
         } else {
@@ -247,32 +140,74 @@ private extension LogFormatter {
         }
     }
     
-    func formatLocation(file: String, line: Int) -> String {
-        return formatFile(file, fullPath: false, withExtension: true) + ":" + String(line)
+    open func formatFile(_ file: String, fullPath: Bool, withExtension: Bool) -> String {
+        var file = file
+        if !fullPath {
+            file = (file as NSString).lastPathComponent
+        }
+        if !withExtension {
+            file = (file as NSString).deletingPathExtension
+        }
+        return file
     }
     
-    func formatThread() -> String {
-        if let threadName = Thread.current.name , !threadName.isEmpty {
-            return threadName
-        } else if Thread.isMainThread {
-            return "main"
-        } else if !DispatchQueue.main.label.isEmpty {
-            return DispatchQueue.main.label
-        } else {
-            return Thread.current.description
+    open func formatLine(_ line: Int) -> String {
+        return String(line)
+    }
+    
+    open func formatLocation(file: String, line: Int, fullPath: Bool) -> String {
+        return formatFile(file, fullPath: fullPath, withExtension: true) + ":" + String(line)
+    }
+    
+    open func formatDate(_ date: Date, style: Field.DateStyle) -> String {
+        switch style {
+        case .unixTime:
+            return String(date.timeIntervalSince1970)
+        case .format(let dateFormat):
+            dateFormatter.dateFormat = dateFormat
+            return dateFormatter.string(from: date)
         }
     }
     
-    func formatMessage(_ items: [String], separator: String) -> String {
-        return items.joined(separator: separator)
-    }
-    
-    func formatCustom(_ contentFormattingOption: LogFormattingComponent.CustomContentFormattingOption) -> String {
-        switch contentFormattingOption {
-        case .text(let text):
-            return text
-        case .closure(let closure):
-            return closure()
+    open func formatThreadID(_ threadID: UInt64, style: Field.ThreadIDStyle) -> String {
+        switch style {
+        case  .decimal:
+            return String(threadID)
+        case .hexadecimal:
+            return String(format: "%08X", threadID)
         }
     }
+    
+    open func formatClosure(_ closure: () -> String) -> String {
+        return closure()
+    }
+}
+
+// MARK: - LogFormatter Presets
+
+public extension LogFormatter {
+    
+    internal static let barebone: LogFormatter = .init(format: "%@ %@",
+                                                       fields: [.level(style: .custom(levelEmojis)), .message])
+ 
+    static let levelEmojis = ["⚪️", "💬", "⚠️", "‼️", "❌"]
+    
+    static let minimal: LogFormatter = .init(format: "%@ | %@ > %@",
+                                             fields: [.date(style: .format("HH:mm:ss")),
+                                                      .level(style: .custom(levelEmojis)), .message])
+    
+    static let concise: LogFormatter = .init(format: "[%@] %@ | %@ > %@",
+                                             fields: [.date(style: .format("HH:mm:ss")),
+                                                      .level(style: .custom(levelEmojis)), .location(fullPath: false),
+                                                      .message])
+    
+    static let `default`: LogFormatter = .init(format: "[%@] %@ | %@ > %@",
+                                               fields: [.date(style: .format("yyyy-MM-dd HH:mm:ss.SSS")),
+                                                        .level(style: .custom(levelEmojis)), .location(fullPath: false),
+                                                        .message])
+    
+    static let verbose: LogFormatter = .init(format: "[%@] %@ | %@ - %@\n> %@",
+                                             fields: [.date(style: .format("yyyy-MM-dd HH:mm:ss.SSS")),
+                                                      .level(style: .custom(levelEmojis)), .location(fullPath: false),
+                                                      .function, .message])
 }

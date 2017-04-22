@@ -6,402 +6,469 @@
 //  Copyright © 2016年 kAzec. All rights reserved.
 //
 
-import Foundation
+import Dispatch
+import Darwin.C.time
 
-public final class ManagedFileDestination: LoggerDestination {
+open class ManagedFileDestination: LogDestination {
     
-    private var currentFile: (stream: UnsafeMutablePointer<FILE>, info: FileInfo)?
-    private var managedFilesUsedDiskSpace: UInt = 0
-    private let queue: DispatchQueue
+    // MARK: - Immutable Properties
     
-    /// The formatter used by the receiver to format the log message.
-    public var formatter: LogFormatter
-    
-    /// The theme used by the receiver to colorize the log message.
-    public var theme: FileTheme?
-    
-    /// The delegate of the receiver.
-    public weak var delegate: ManagedFileDestinationDelegate?
-    
-    /// Time interval determines how long a log file should be used. After that a new log file will
-    /// be created.
+    /// The url to the directory where all the log files will be stored.
     ///
-    /// Its default value is `24 * 60 * 60`, aka one day.
-    ///
-    /// Setting a value less or equal than zero will disable rotating.
-    public var rotatingInterval: TimeInterval {
-        // These property observers(see below) seem likely that it will cause a little overhead,
-        // however it's actually fine since it's rarely change.
-        didSet { rotateIfNeeded() }
-    }
+    /// This destination expects full control of all **files** in the main directory. All sub-directories, however will
+    /// be ignored during the indexing process.
+    public let mainDirectory: URL
     
-    /// Maximum file size(in bytes) of current log file can use. The limit will be checked every
-    /// time a new log message arrives(before it is evaluated and recorded), and if it's
-    /// exceeded, the receiver will rotate the current log file and create and use a new one.
-    ///
-    /// Its default value is 0, which disables this limit.
-    public var maximumLogFileSize: UInt {
-        didSet { rotateIfNeeded() }
-    }
+    public let formatter: LogFormatter?
+    public let queue: DispatchQueue?
     
-    /// Time interval before a log file expires and gets deleted.
-    ///
-    /// Its default value is `7 * 24 * 60 * 60`, aka 7 days.
-    ///
-    /// Setting a value less or equal than zero will disable this limit.
-    /// 
-    /// Setting a value less or equal than `rotatingInterval` will cause the rotated log file to be
-    /// deleted immediately.
-    public var expirationInterval: TimeInterval {
-        didSet { prune() }
-    }
     
-    /// Maximum number of all managed log files to keep. The limit will be checked every time a log
-    /// file gets rotated, and if it's exceeded, starting from the oldest log file, the log files
-    /// will be deleted to satisfy the limit.
+    // MARK: - Quotas
+    
+    /// The longest period of time that the active logging file can be used.
     ///
-    /// Its default value is 0, which disables this limit.
-    public var maximumNumberOfLogFiles: Int {
-        didSet { prune() }
-    }
-    
-    /// Maximum disk space(in bytes) of all managed log files can use. The limit will be checked
-    /// every time a log file gets rotated, and if it's exceeded, starting from the oldest log file,
-    /// the log files will be deleted to satisfy the limit.
+    /// **Note:** A check will be performed when a new log entry arrives, in the following situations:
+    /// 1. After this destination writes the log entry down.
+    /// 2. When this value is found to be modifed.
     ///
-    /// Its default value is 0, which disables this limit.
-    public var maximumLogFilesDiskSpace: UInt {
-        didSet { prune() }
-    }
-    
-    /// The path to the directory where all the log files will be stored.
-    public let directoryPath: String
-    
-    /// The path to the current log file to write logs, if opened.
-    public var currentLogFilePath: String? {
-        if let currentFileName = currentFile?.info.fileName {
-            return makeFilePath(named: currentFileName)
-        } else {
-            return nil
+    /// The active logging file will be rotated if the active logging file fails to pass the check.
+    ///
+    /// The default value is `24 * 60 * 60`, aka one day.
+    ///
+    /// Setting a value less or equal than zero will disable this quota.
+    public var activeFileAgeQuota: TimeInterval {
+        set {
+            quotasLock.lock(); defer { quotasLock.unlock() }
+            activeFileQuotas.ageQuota = newValue
+            isActiveFileQuotasModified = true
+        }
+        
+        get {
+            return activeFileQuotas.ageQuota
         }
     }
     
-    /// The file informations of all log files managed by the receiver, sorted by creation date
-    /// descendingly.
+    /// The maximum disk space(in bytes) that the active logging file can use.
     ///
-    /// The first item in the array will be the most recently created log file.
-    public private(set) var managedFileInfos: [FileInfo] = []
-    
-    /// The paths to all log files managed by the receiver, sorted by creation date descendingly.
+    /// **Note:** A check will be performed alongside the check of the `activeFileAgeQuota`, see its description for
+    /// details.
     ///
-    /// The first item in the array will be the most recently created log file.
-    public var managedFilePaths: [String] {
-        return managedFileInfos.map{ makeFilePath(named: $0.fileName) }
-    }
-
-    /// The date formatter used by the receiver to generate names of the log files and determine
-    /// creation date of log files.
-    ///
-    /// By default its `dateFormat` is `yyyy-MM-dd.HH-mm-ss-SSSS`. And the name of the log file will
-    /// be, for example:
-    /// `com.example.identifier.2016-08-22.23-32-23-4530.log`
-    ///
-    /// **Note:** Due to reasons stated above, modifying its `dateFormat` property may leads to
-    /// unexpected and surprising behavior.
-    /// 
-    /// If you want to use a custom `dateFormat`, the new format must be valid so that the formatter
-    /// can convert the formatted string back to NSDate. And depending on the values of `rotatingInterval`
-    /// and `expirationInterval`, the extracted NSDate should have enough precision.
-    public let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd.HH-mm-ss-SSSS"
-        return formatter
-    }()
-    
-    public init(inDirectory directoryPath: String = defaultLogDirectoryPath(),
-                formatter: LogFormatter = defaultFileDestinationFormatter(),
-                theme: FileTheme? = nil,
-                queue: DispatchQueue = DispatchQueue(label: "com.uncosmos.Logging.managed-file", qos: .background),
-                rotatingInterval: TimeInterval = 24 * 60 * 60,
-                maximumLogFileSize: UInt = 0,
-                expirationInterval: TimeInterval = 7 * 24 * 60 * 60,
-                maximumNumberOfLogFiles: Int = 0,
-                maximumLogFilesDiskSpace: UInt = 0) {
+    /// Its default value is 0 and that disables this limit.
+    public var activeFileSizeQuota: UInt64 {
+        set {
+            quotasLock.lock(); defer { quotasLock.unlock() }
+            activeFileQuotas.sizeQuota = newValue
+            isActiveFileQuotasModified = true
+        }
         
+        get {
+            return activeFileQuotas.sizeQuota
+        }
+    }
+    
+    /// The longest period of time that a archived logging file can be kept.
+    ///
+    /// **Note:** A check will be performed on each archived logging file in the list when a new log entry arrives, in
+    /// the following situations:
+    /// 1. After the active logging is rotated. See description of `activeFileAgeQuota` for details.
+    /// 2. When this value is found to be modified.
+    ///
+    /// The archived logging files which fail to pass the check will be removed by invoking the method 
+    /// `removeArchivedFile(at:)`. You can override that method to perform customized removal.
+    ///
+    /// The default value is `7 * 24 * 60 * 60`, aka 7 days.
+    ///
+    /// Setting a value less or equal than zero will disable this quota.
+    ///
+    /// Setting a value less or equal than `activeFileAgeQuota` will cause the archived logging file to be removed
+    /// immediately.
+    public var archivedFileAgeQuota: TimeInterval {
+        set {
+            quotasLock.lock(); defer { quotasLock.unlock() }
+            archivedFileQuotas.ageQuota = newValue
+            isArchivedFileQuotasModified = true
+        }
+        
+        get {
+            return archivedFileQuotas.ageQuota
+        }
+    }
+    
+    /// The maximum number of archived logging files can be kept.
+    ///
+    /// **Note:** A check will be performed alongside the check of the `archivedFileAgeQuota`, see its description for
+    /// details.
+    ///
+    /// The default value is 0, which disables this limit.
+    public var archivedFilesCountQuota: UInt {
+        set {
+            quotasLock.lock(); defer { quotasLock.unlock() }
+            archivedFileQuotas.countQuota = newValue
+            isArchivedFileQuotasModified = true
+        }
+        
+        get {
+            return archivedFileQuotas.countQuota
+        }
+    }
+    
+    /// The maximum disk space(in bytes) that all the archived logging files can use.
+    ///
+    /// **Note:** A check will be performed alongside the check of the `archivedFileAgeQuota`, see its description for
+    /// details.
+    ///
+    /// The default value is 0, which disables this limit.
+    public var archivedFilesTotalSizeQuota: UInt64 {
+        set {
+            quotasLock.lock(); defer { quotasLock.unlock() }
+            archivedFileQuotas.totalSizeQuota = newValue
+            isArchivedFileQuotasModified = true
+        }
+        
+        get {
+            return archivedFileQuotas.totalSizeQuota
+        }
+    }
+    
+    private struct ActiveFileQuotas {
+        
+        var ageQuota: TimeInterval
+        var sizeQuota: UInt64
+    }
+    
+    private struct ArchivedFileQuotas {
+        
+        var ageQuota: TimeInterval
+        var countQuota: UInt
+        var totalSizeQuota: UInt64
+    }
+    
+    /// Since quotas are typically written on the main thread and read on the destinaion's/logger's internal thread, a
+    /// lock is needed to synchronize the access.
+    private let quotasLock: NSLock
+    
+    private var isActiveFileQuotasModified: Bool = false
+    private var isArchivedFileQuotasModified: Bool = false
+    
+    private var activeFileQuotas: ActiveFileQuotas
+    private var archivedFileQuotas: ArchivedFileQuotas
+    
+    
+    // MARK: - Internal State.
+    
+    private struct State {
+        
+        struct ActiveFile {
+            
+            struct OpenError : Error, CustomStringConvertible {
+                let url: URL
+                let errno: Int32
+                
+                var description: String {
+                    return "Failed to create or open file at \(url), errno(\(errno))."
+                }
+            }
+            
+            let url: URL
+            let handle: FileHandle
+            let creationDate: Date
+            
+            var size: UInt64 {
+                return handle.offsetInFile
+            }
+            
+            var age: TimeInterval {
+                return -creationDate.timeIntervalSinceNow
+            }
+            
+            init(url: URL, creationDate: Date) throws {
+                let fileDescriptor = open(url.path, O_WRONLY | O_CREAT)
+                
+                guard fileDescriptor >= 0 else {
+                    throw OpenError(url: url, errno: errno)
+                }
+                
+                self.url = url
+                self.handle = FileHandle(fileDescriptor: fileDescriptor)
+                self.creationDate = creationDate
+            }
+            
+            init(in directory: URL) throws {
+                let creationDate = Date()
+                let url = directory.appendingPathComponent(creationDate.logFileName, isDirectory: false)
+                try self.init(url: url, creationDate: creationDate)
+            }
+        }
+        
+        struct ArchivedFile {
+            let url: URL
+            let size: UInt64
+            let creationDate: Date
+            
+            var age: TimeInterval {
+                return -creationDate.timeIntervalSinceNow
+            }
+        }
+
+        private(set) var activeFile: ActiveFile
+        private(set) var archivedFiles: [ArchivedFile]
+        private(set) var archivedFilesCount: UInt
+        private(set) var archivedFilesTotalSize: UInt64
+        
+        mutating func shouldRotateActiveFileWithQuotas(_ quotas: ActiveFileQuotas) -> Bool {
+            return !(activeFile.age.meetsQuota(quotas.ageQuota) && activeFile.size.meetsQuota(quotas.sizeQuota))
+        }
+        
+        mutating func rotate(createNewActiveFileIn directory: URL) throws {
+            let newActiveFile = try ActiveFile(in: directory)
+            let newArchivedFile = ArchivedFile(url: activeFile.url, size: activeFile.handle.offsetInFile,
+                                               creationDate: activeFile.creationDate)
+            
+            archivedFiles.append(newArchivedFile)
+            archivedFilesCount += 1
+            archivedFilesTotalSize += newArchivedFile.size
+            
+            activeFile = newActiveFile
+        }
+        
+        mutating func applyArchivedFileQuotas(_ quotas: ArchivedFileQuotas, removal: (URL) throws -> ()) rethrows {
+            guard !archivedFiles.isEmpty else {
+                return
+            }
+            
+            // The archived files array is sorted by creation date from oldest to newest.
+            var removedFilesCount: UInt = 0
+            var removedFilesTotalSize: UInt64 = 0
+                
+            for file in archivedFiles {
+                if !(file.age.meetsQuota(quotas.ageQuota) && archivedFilesCount.meetsQuota(quotas.countQuota)
+                    && archivedFilesTotalSize.meetsQuota(quotas.totalSizeQuota)) {
+                    
+                    try removal(file.url)
+                    
+                    removedFilesCount += 1
+                    removedFilesTotalSize += file.size
+                    
+                    continue
+                } else {
+                    // All quotas are met, break out to perform actual removal.
+                    break
+                }
+            }
+            
+            archivedFiles.removeFirst(Int(removedFilesCount))
+            archivedFilesCount -= removedFilesCount
+            archivedFilesTotalSize -= removedFilesTotalSize
+        }
+        
+        /// Create a brand new empty state.
+        static func empty(in directory: URL) throws -> State {
+            return try State(activeFile: ActiveFile(in: directory), archivedFiles: [], archivedFilesCount: 0,
+                                 archivedFilesTotalSize: 0)
+        }
+    }
+    
+    // Mutable internal state
+    private var state: State!
+    
+    
+    // MARK: - Public methods.
+    
+    public init(mainDirectory: URL = ManagedFileDestination.makeDefaultMainDirectoryURL(), formatter: LogFormatter?,
+                queue: DispatchQueue? = DispatchQueue(label: "com.uncosmos.Logging.managed-file", qos: .background),
+                activeFileAgeQuota: TimeInterval = 24 * 60 * 60, activeFileSizeQuota: UInt64 = 0,
+                archivedFileAgeQuota: TimeInterval = 7 * 24 * 60 * 60, archivedFilesCountQuota: UInt = 0,
+                archivedFilesTotalSizeQuota: UInt64 = 0) {
+        
+        self.mainDirectory = mainDirectory
+        self.formatter = formatter
         self.queue = queue
         
-        self.formatter = formatter
-        self.theme = theme
-        self.directoryPath = directoryPath
+        quotasLock = NSLock()
+        quotasLock.name = "com.uncosmos.Logging.managed-file-quotas"
         
-        self.rotatingInterval = rotatingInterval
-        self.maximumLogFileSize = maximumLogFileSize
-        self.expirationInterval = expirationInterval
-        self.maximumNumberOfLogFiles = maximumNumberOfLogFiles
-        self.maximumLogFilesDiskSpace = maximumLogFilesDiskSpace
-        
-        prune()
+        activeFileQuotas = ActiveFileQuotas(ageQuota: activeFileAgeQuota, sizeQuota: activeFileSizeQuota)
+        archivedFileQuotas = ArchivedFileQuotas(ageQuota: archivedFileAgeQuota, countQuota: archivedFilesCountQuota,
+                                                totalSizeQuota: archivedFilesTotalSizeQuota)
     }
     
-    /**
-     Receive new log use specified parameters. You should not call this method directly.
-     */
-    public func receiveLog(of level: PriorityLevel, items: [String], separator: String, file: String, line: Int, function: String, date: Date) {
-        // Make preparations.
-        if currentFile == nil || rotateNeeded {
-            rotateForcely()
-            prune()
-        }
+    public func initialize() {
+        // Read quotas.
+        quotasLock.lock()
+        let activeFileQuotas = self.activeFileQuotas
+        let archivedFileQuotas = self.archivedFileQuotas
         
-        guard let fileStream = currentFile?.stream else {
-            return print("<com.uncosmos.Logging>: Error receiving log: Cannot open file stream.")
-        }
+        isActiveFileQuotasModified = false
+        isArchivedFileQuotasModified = false
+        quotasLock.unlock()
         
-        // Produce the log message.
-        var entry = formatter.formatComponents(level: level, items: items, separator: separator, file: file, line: line, function: function, date: date)
-        if let theme = theme {
-            entry = theme.colorizeEntry(entry, forLevel: level)
-        }
-        let log = formatter.formatEntry(entry)
-        
-        // Write log to file asynchronously.
-        queue.async {
-            let characters = log.UTF8String
-            fputs(characters, fileStream)
+        // Reindex main directory.
+        do {
+            // Perform a shallow search on the main directory and cache the resulting urls with some properties.
+            let resourceKeys: Set<URLResourceKey> = [.isDirectoryKey, .fileSizeKey, .creationDateKey]
+            let contents = try FileManager.default.contentsOfDirectory(at: mainDirectory,
+                                                                       includingPropertiesForKeys: Array(resourceKeys),
+                                                                       options: .skipsHiddenFiles)
             
-            // Update current file size.
-            let lengthInBytes = UInt(characters.count * MemoryLayout<CChar>.size)
-            if self.currentFile != nil {
-                self.currentFile!.info.fileSize += lengthInBytes
-                for index in self.managedFileInfos.indices {
-                    // The current file info should be at index 0.
-                    if self.managedFileInfos[index].fileName == self.currentFile!.info.fileName {
-                        self.managedFileInfos[index].fileSize += lengthInBytes
-                        break
+            if !contents.isEmpty {
+                var archivedFiles: [State.ArchivedFile] = []
+                var archivedFilesCount: UInt = 0
+                var archivedFilesTotalSize: UInt64 = 0
+                
+                for var fileURL in contents {
+                    // Retrieve then purge cached resource values.
+                    let resourceValues = try fileURL.resourceValues(forKeys: resourceKeys)
+                    fileURL.removeAllCachedResourceValues()
+                    
+                    // Skip directories.
+                    guard !resourceValues.isDirectory! else { continue }
+                    
+                    let fileSize = UInt64(resourceValues.fileSize!)
+                    let creationDate = resourceValues.creationDate!
+                    
+                    // Check if the file is too old.
+                    let age = -creationDate.timeIntervalSinceNow
+                    if age.meetsQuota(archivedFileQuotas.ageQuota) {
+                        let file =  State.ArchivedFile(url: fileURL, size: fileSize, creationDate: creationDate)
+                        archivedFilesTotalSize += fileSize
+                        archivedFilesCount += 1
+                        archivedFiles.append(file)
+                    } else {
+                        try removeArchivedFile(at: fileURL)
+                        continue
                     }
                 }
-            }
-        }
-    }
-    
-    /**
-     Flush all queued log messages to the log file.
-     */
-    public func flush() {
-        queue.sync()
-        
-        if let currentFileStream = currentFile?.stream {
-            fflush(currentFileStream)
-        }
-    }
-    
-    /**
-     Reindex the log directory.
-     */
-    public func reindex() {
-        // Clear saved file informations.
-        managedFileInfos.removeAll()
-        managedFilesUsedDiskSpace = 0
-        
-        // Reindex.
-        let fileManager = FileManager.default
-        do {
-            if !fileManager.fileExists(atPath: directoryPath) {
-                try fileManager.createDirectory(atPath: directoryPath, withIntermediateDirectories: true, attributes: nil)
-            }
-            
-            let fileNames = try fileManager.contentsOfDirectory(atPath: directoryPath)
-            
-            managedFileInfos.reserveCapacity(fileNames.count)
-            
-            for fileName in fileNames {
-                let filePath = makeFilePath(named: fileName)
-                guard !fileManager.isDirectory(filePath) else {
-                    continue
+                
+                if archivedFiles.isEmpty {
+                    state = try .empty(in: mainDirectory)
+                    return
                 }
                 
-                guard let creationDate = dateOfLogFile(named: fileName) else {
-                    continue
+                // Sort the file infos by creation date from oldest to newest.
+                archivedFiles.sort {
+                    $0.creationDate < $1.creationDate
                 }
                 
-                let file = fopen(filePath.UTF8String, "r")
-                let fileSize: UInt
-                if file != nil {
-                    fseek(file, 0, SEEK_END)
-                    fileSize = UInt(ftell(file))
-                    fclose(file)
+                // Create the active file.
+                let activeFile: State.ActiveFile
+                
+                // Check if we should continue to use the most recent log file.
+                let newestArchivedFile = archivedFiles.last!
+                if newestArchivedFile.age.meetsQuota(activeFileQuotas.ageQuota)
+                    && newestArchivedFile.age.meetsQuota(archivedFileQuotas.ageQuota)
+                    && newestArchivedFile.size.meetsQuota(activeFileQuotas.sizeQuota) {
+                    
+                    archivedFiles.removeLast()
+                    archivedFilesTotalSize -= newestArchivedFile.size
+                    archivedFilesCount -= 1
+                    
+                    activeFile = try .init(url: newestArchivedFile.url, creationDate: newestArchivedFile.creationDate)
                 } else {
-                    fileSize = 0
+                    activeFile = try .init(in: mainDirectory)
                 }
                 
-                managedFilesUsedDiskSpace += fileSize
-                let logFileInfo = FileInfo(fileSize: fileSize, fileName: fileName, creationDate: creationDate)
-                managedFileInfos.append(logFileInfo)
-            }
-            
-            managedFileInfos.sort { one, other in
-                return one.creationDate.timeIntervalSinceReferenceDate > other.creationDate.timeIntervalSinceReferenceDate
+                // Create the state and apply archived file quotas.
+                state = State(activeFile: activeFile, archivedFiles: archivedFiles,
+                              archivedFilesCount: archivedFilesCount,
+                              archivedFilesTotalSize: archivedFilesTotalSize)
+                
+                try state.applyArchivedFileQuotas(archivedFileQuotas, removal: removeArchivedFile(at:))
             }
         } catch {
-            if let delegate = delegate {
-                delegate.managedFileDestination(self, didCatchError: error as NSError)
-            } else {
-                print("Error reindexing \(directoryPath): \(error).")
-            }
+            print("<com.uncosmos.Logging> Managed file destination unable to initialize due to error: \"\(error)\"")
+            return
         }
     }
     
-    public func rotate() {
-        rotateForcely()
-        prune()
-    }
-    
-    public func prune() {
-        reindex()
-        pruneForcely()
-    }
-    
-    public func dateOfLogFile(named name: String) -> Date? {
-        guard name.characters.count > 29 else {
-            return nil
-        }
-        
-        let extensionStartIndex = name.characters.index(name.endIndex, offsetBy: -4)
-        guard name.substring(from: extensionStartIndex) == ".log" else {
-            return nil
-        }
-        
-        let dateStartIndex = name.characters.index(extensionStartIndex, offsetBy: -24)
-        let dateString = name.substring(with: dateStartIndex..<extensionStartIndex)
-        let prefixString = name.substring(to: name.characters.index(before: dateStartIndex))
-        
-        guard prefixString == staticLogFileNamePrefix() else {
-            return nil
-        }
-        
-        return dateFormatter.date(from: dateString)
-    }
-
-    deinit {
-        queue.sync()
-        
-        if let currentFileStream = currentFile?.stream {
-            fclose(currentFileStream)
+    public func deinitialize() {
+        if let activeFileHandle = state?.activeFile.handle {
+            state = nil
+            activeFileHandle.synchronizeFile()
+            activeFileHandle.closeFile()
         }
     }
     
-    private var rotateNeeded: Bool {
-        guard let currentFileInfo = currentFile?.info else {
-            return false
-        }
-        
-        // Check if we need to rotate.
-        let rotatingIntervalExceeded = rotatingInterval > 0
-            && -currentFileInfo.creationDate.timeIntervalSinceNow > rotatingInterval
-        let fileSizeExceeded = maximumLogFileSize > 0
-            && currentFileInfo.fileSize > maximumLogFileSize
-        
-        return rotatingIntervalExceeded || fileSizeExceeded
-    }
-    
-    private var diskQuotaExceeded: Bool {
-        return maximumLogFilesDiskSpace > 0 && managedFilesUsedDiskSpace > maximumLogFilesDiskSpace
-    }
-    
-    private var numberOfLogFilesExceeded: Bool {
-        return maximumNumberOfLogFiles > 0 && managedFileInfos.count > maximumNumberOfLogFiles
-    }
-    
-    private func makeFilePath(named name: String) -> String {
-        return (directoryPath as NSString).appendingPathComponent(name)
-    }
-    
-    private func rotateForcely() {
-        // If current log file is opened, flush then close it.
-        if let currentFileStream = currentFile?.stream {
-            queue.sync()
-            fclose(currentFileStream)
-        }
-        
-        let now = Date()
-        let fileName = String(format: "%@.%@.log",
-                              staticLogFileNamePrefix() as CVarArg,
-                              dateFormatter.string(from: now) as CVarArg)
-        let filePath = makeFilePath(named: fileName)
-        let fileStream = fopen(filePath.UTF8String, "w")
-        
-        if let fileStream = fileStream {
-            print("Rotating to new log file: \(fileName)")
-            let fileInfo = FileInfo(fileSize: 0, fileName: fileName, creationDate: now)
-            currentFile = (fileStream, fileInfo)
-        } else {
-            print("<com.uncosmos.Logging>: Failed to open log file \(filePath), errno: \(errno).")
-        }
-    }
-    
-    private func rotateIfNeeded() {
-        if rotateNeeded {
-            rotateForcely()
-            reindex()
-            pruneForcely()
-        }
-    }
-    
-    private func pruneForcely() {
-        guard expirationInterval > 0 || maximumNumberOfLogFiles > 0 || maximumLogFilesDiskSpace > 0 else {
-            // All limits are disabled, no need to prune.
+    public func write(_ entry: LogEntry) {
+        guard state != nil else {
             return
         }
         
-        let fileManager = FileManager.default
-        for (index, fileInfo) in managedFileInfos.enumerated().reversed() { // Starting from oldest log file.
-            if let currentFileName = currentFile?.info.fileName , fileInfo.fileName == currentFileName {
-                // Leave current log file untouched.
-                break
+        quotasLock.lock()
+        let activeFileQuotas = self.activeFileQuotas
+        let archivedFileQuotas = self.archivedFileQuotas
+        
+        let isActiveFileQuotasModified = self.isActiveFileQuotasModified
+        let isArchivedFileQuotasModified = self.isArchivedFileQuotasModified
+        
+        self.isActiveFileQuotasModified = false
+        self.isArchivedFileQuotasModified = false
+        quotasLock.unlock()
+        
+        do {
+            var didRotate = false
+            
+            // Maybe rotate active file if the associated quotas have been modified.
+            if isActiveFileQuotasModified && state.shouldRotateActiveFileWithQuotas(activeFileQuotas) {
+                try state.rotate(createNewActiveFileIn: mainDirectory)
+                didRotate = true
             }
             
-            let expired = expirationInterval > 0
-                && -fileInfo.creationDate.timeIntervalSinceNow > expirationInterval
-            
-            if expired || numberOfLogFilesExceeded || diskQuotaExceeded {
-                let filePath = makeFilePath(named: fileInfo.fileName)
-                do {
-                    try fileManager.removeItem(atPath: filePath)
-                    print("Removed log file: \(fileInfo.fileName)")
-                    managedFilesUsedDiskSpace -= fileInfo.fileSize
-                    managedFileInfos.remove(at: index)
-                } catch {
-                    if let delegate = delegate {
-                        delegate.managedFileDestination(self, didCatchError: error as NSError)
-                    } else {
-                        print("<com.uncosmos.Logging>: Error deleting file \(filePath): \(error).")
-                    }
+            // Write data to active file handle.
+            if let data = entry.content.data(using: .utf8) {
+                state.activeFile.handle.write(data)
+                
+                if !(state.activeFile.size.meetsQuota(activeFileQuotas.sizeQuota)
+                    && state.activeFile.age.meetsQuota(activeFileQuotas.ageQuota)) {
+                    
+                    try state.rotate(createNewActiveFileIn: mainDirectory)
+                    didRotate = true
                 }
             }
+            
+            // Maybe remove outdated archived files if either we performed a rotation before or the associated quotas 
+            // have been modified.
+            if didRotate || isArchivedFileQuotasModified {
+                try state.applyArchivedFileQuotas(archivedFileQuotas, removal: removeArchivedFile(at:))
+            }
+        } catch {
+            print("<com.uncosmos.Logging> Managed file destination encountered error: \"\(error)\", in \(#function)")
+            state = nil
         }
     }
     
-    public struct FileInfo {
-        fileprivate var fileSize: UInt
-        
-        public let fileName: String
-        public let creationDate: Date
+    public func synchronize() {
+        state?.activeFile.handle.synchronizeFile()
+    }
+    
+    /// Remove the archived logging file from the main directory at the given url.
+    open func removeArchivedFile(at url: URL) throws {
+        try FileManager.default.removeItem(at: url)
+    }
+    
+    private static func makeDefaultMainDirectoryURL() -> URL {
+        #if os(macOS)
+            return App.makeLogsDirectory().appendingPathComponent(App.loggingIdentifier, isDirectory: true)
+        #else
+            return App.makeLogsDirectory()
+        #endif
     }
 }
 
-public protocol ManagedFileDestinationDelegate: class {
-    func managedFileDestination(_ destination: ManagedFileDestination, shouldDeleteFileAtPath: String) -> Bool
-    func managedFileDestination(_ destination: ManagedFileDestination, didCatchError: NSError)
+
+extension TimeInterval {
+    func meetsQuota(_ quota: TimeInterval) -> Bool {
+        return quota <= 0 ? true : self <= quota
+    }
 }
 
-private func staticLogFileNamePrefix() -> String {
-    return App.identifier ?? App.name
+extension UInt {
+    func meetsQuota(_ quota: UInt) -> Bool {
+        return quota == 0 ? true : self <= quota
+    }
 }
 
-private func defaultLogDirectoryPath() -> String {
-    #if os(OSX)
-        return App.ensuredLogsDirectoryPath
-    #else // iOS, tvOS, watchOS
-        return (App.ensuredLogsDirectoryPath as NSString).appendingPathComponent(App.identifier ?? App.name)
-    #endif
+extension UInt64 {
+    func meetsQuota(_ quota: UInt64) -> Bool {
+        return quota == 0 ? true : self <= quota
+    }
 }
