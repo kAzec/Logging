@@ -9,6 +9,10 @@
 import Dispatch
 import CASL
 
+@available(iOS, deprecated: 10.0, message: "Use OSLogDestination instead.")
+@available(macOS, deprecated: 10.12, message: "Use OSLogDestination instead.")
+@available(tvOS, deprecated: 10.0, message: "Use OSLogDestination instead.")
+@available(watchOS, deprecated: 3.0, message: "Use OSLogDestination instead.")
 public final class ASLDestination: LogDestination {
     
     public let queue: DispatchQueue?

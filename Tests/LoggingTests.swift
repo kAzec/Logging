@@ -33,7 +33,6 @@ class LoggingTests: XCTestCase {
     }
     
     override func tearDown() {
-        Thread.sleep(forTimeInterval: 3)
         try! FileManager.default.removeItem(at: logDirectory)
         super.tearDown()
     }
@@ -48,18 +47,20 @@ class LoggingTests: XCTestCase {
         logger.addDestination(aslDestination)
         sendMessage()
     }
-    
+//
     func testOSLogDestination() {
         if #available(OSX 10.12, *) {
             let osLogDestination = OSLogDestination(category: "Test")
             logger.addDestination(osLogDestination)
             sendMessage()
+        } else {
+            print("OSLog not available.")
         }
     }
     
     func testFileDestination() {
         let fileDestination = FileDestination(fileURL: logDirectory.appendingPathComponent("test.log"))
-        logger.destinations.append(fileDestination)
+        logger.addDestination(fileDestination)
         sendMessage()
     }
     

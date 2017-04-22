@@ -49,6 +49,8 @@ public class Logger {
                 return
             }
             
+            self.destinations.append(destination)
+            
             if let queue = destination.queue {
                 queue.async(execute: destination.initialize)
             } else {

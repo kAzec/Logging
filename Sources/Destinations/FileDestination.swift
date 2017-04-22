@@ -28,13 +28,15 @@ public final class FileDestination: LogDestination {
     }
     
     public func initialize() {
-        let fileDescriptor = open(fileURL.path, O_RDONLY | O_CREAT)
+        let fileDescriptor = open(fileURL.path, O_WRONLY | O_CREAT, 0o0644)
         guard fileDescriptor >= 0 else {
             print("<com.uncosmos.Logging> File destination unable to open file at \(fileURL.path) when initializing.")
             return
         }
         
-        fileHandle = FileHandle(fileDescriptor: fileDescriptor)
+        let fileHandle = FileHandle(fileDescriptor: fileDescriptor)
+        fileHandle.seekToEndOfFile()
+        self.fileHandle = fileHandle
     }
     
     public func deinitialize() {
